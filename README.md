@@ -9,3 +9,9 @@ Extract features from Alphafold2 derived structures ( https://alphafold.ebi.ac.u
 
 - Analysis
 Here the extracted and merged features are analysed and used for prediction of pathogenicity. This part is written in R.
+
+
+Install:
+This was only tested on Ubuntu / Xubuntu Linux.
+
+Make sure to have conda installed, if not install it (e.g. https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ).
