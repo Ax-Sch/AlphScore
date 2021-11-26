@@ -18,9 +18,11 @@ Make sure to have conda installed, if not install it (e.g. https://docs.conda.io
 
 Clone or download the repository to a directory with plenty of free storage, then change directory into the AlphScore-main folder. Then set up the conda environment.
 
+```
 cd [folder where the repository was cloned/downloaded to]/AlphScore
 conda env create --file=environment/alphafold_environment.yaml
 conda activate alphafold1
 snakemake --cores 1
 chmod +x tools/dssp/mkdssp
 chmod +x tools/feature/feature-3.1.0/bin/featurize
+```
