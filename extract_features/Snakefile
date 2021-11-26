@@ -38,7 +38,6 @@ alphafold_and_dbnsfp=[ele.split("-")[1] for ele in pdb_ids2]
 
 rule all:
 	input:
-		expand("data/split_dbNSFP/chr{chr}_ok", chr=chroms),
 		"data/dbNSFP_raw/download_ok",
 		"data/pdb_files/download_ok",
 		expand("data/pdb_features/{pdb}/b_factors.csv", pdb=pdb_ids2),
@@ -108,6 +107,13 @@ rule split_dbNSFP:
 		cd $homedir
 		touch "{output}"
 		"""
+
+rule translate_to_pdb_ids:
+	input:
+		expand("data/split_dbNSFP/chr{chr}_ok", chr=chroms)
+	output:
+		expand(pdb_dir+"{pdb_name}.pdb.gz", pdb_name=pdb_ids2)
+
 
 rule FEATURE_DSSP:
 	input:

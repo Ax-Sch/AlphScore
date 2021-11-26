@@ -12,6 +12,14 @@ Here the extracted and merged features are analysed and used for prediction of p
 
 
 Install:
-This was only tested on Ubuntu / Xubuntu Linux.
+This was tested on Ubuntu / Xubuntu Linux using miniconda3.
 
 Make sure to have conda installed, if not install it (e.g. https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ).
+
+Clone or download the repository to a directory with plenty of free storage, then change directory into the AlphScore-main folder. Then set up the conda environment.
+
+cd [folder where the repository was cloned/downloaded to]/AlphScore
+conda env create --file=environment/alphafold_environment.yaml
+conda activate alphafold1
+
+
