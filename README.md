@@ -21,5 +21,6 @@ Clone or download the repository to a directory with plenty of free storage, the
 cd [folder where the repository was cloned/downloaded to]/AlphScore
 conda env create --file=environment/alphafold_environment.yaml
 conda activate alphafold1
-
-
+snakemake --cores 1
+chmod +x tools/dssp/mkdssp
+chmod +x tools/feature/feature-3.1.0/bin/featurize
