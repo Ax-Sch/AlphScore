@@ -31,6 +31,8 @@ chmod +x tools/dssp/mkdssp
 chmod +x tools/feature/feature-3.1.0/bin/featurize
 ```
 
+Note that DSSP, the FEATURE framework and protinter are practically not available via conda. Currently, these tools are uploaded to this repository to facilitate installing.
+
 ### Run feature extraction
 Feature extraction can be run using the follwoing commands:
 
