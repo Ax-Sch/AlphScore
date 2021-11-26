@@ -1,9 +1,0 @@
-INFO [2021-11-26 16:54:05] $x
-INFO [2021-11-26 16:54:05] list(cv_18prot$id, cv_21prot$id, gn_temp)
-INFO [2021-11-26 16:54:05] 
-INFO [2021-11-26 16:54:05] $category.names
-INFO [2021-11-26 16:54:05] c("ClinVar2018", "ClinVar2021", "gnomAD")
-INFO [2021-11-26 16:54:05] 
-INFO [2021-11-26 16:54:05] $filename
-INFO [2021-11-26 16:54:05] [1] "ClinVar2018vs2021_variants.png"
-INFO [2021-11-26 16:54:05] 
