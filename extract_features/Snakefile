@@ -39,7 +39,6 @@ alphafold_and_dbnsfp=[ele.split("-")[1] for ele in pdb_ids2]
 rule all:
 	input:
 		"data/dbNSFP_raw/download_ok",
-		"data/pdb_files/download_ok",
 		expand("data/pdb_features/{pdb}/b_factors.csv", pdb=pdb_ids2),
 		expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=pdb_ids2),
 		"train_testset1/gnomad_extracted.csv.gz",
@@ -49,7 +48,8 @@ rule all:
 rule get_dbNSFP_AlphaFold:
 	output:
 		"data/dbNSFP_raw/download_ok",
-		"data/pdb_files/download_ok"
+		"data/pdb_files/download_ok",
+		expand(pdb_dir+"{pdb_name}.pdb.gz", pdb_name=pdb_ids2)
 	params:
 		dbNSFP="data/dbNSFP_raw",
 		alphafold="data/pdb_files"
@@ -106,13 +106,6 @@ rule split_dbNSFP:
 		cd $homedir
 		touch "{output}"
 		"""
-
-rule translate_to_pdb_ids:
-	input:
-		expand("data/pdb_files/download_ok", chr=chroms)
-	output:
-		expand(pdb_dir+"{pdb_name}.pdb.gz", pdb_name=pdb_ids2)
-
 
 rule FEATURE_DSSP:
 	input:
