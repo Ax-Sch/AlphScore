@@ -1,12 +1,20 @@
 import subprocess
 import os
 
+#### config
 pdb_dir="data/pdb_files/"
-feature_folder="tools/feature/feature-3.1.0/"
 dbnsfp_dir="/media/axel/Dateien/Arbeit_Gen/alphafold2/dbnsfp_data/"
-dssp_bin="dssp" #xcat: mkdssp
-protinter_bin="tools/protinter/protinter_mod2" #xcat: #xcat: 
 
+feature_folder="tools/feature/feature-3.1.0/"
+dssp_bin="dssp" #xcat: mkdssp
+protinter_bin="tools/protinter/protinter_mod2" 
+
+alphafold_download_adress="https://ftp.ebi.ac.uk/pub/databases/alphafold/UP000005640_9606_HUMAN.tar"
+dbNSFP_download_adress="ftp://dbnsfp:dbnsfp@dbnsfp.softgenetics.com/dbNSFP4.2a.zip"
+
+### config
+
+chroms=list(range(1,22))+["X"]
 
 my_file = open("config/dbnsfp_files.txt", "r")  ### format: A0A024R1R8
 dbnsfp_ids1 = my_file.readlines()
@@ -30,10 +38,76 @@ alphafold_and_dbnsfp=[ele.split("-")[1] for ele in pdb_ids2]
 
 rule all:
 	input:
+		expand("data/split_dbNSFP/chr{chr}_ok", chr=chroms),
+		"data/dbNSFP_raw/download_ok",
+		"data/pdb_files/download_ok",
 		expand("data/pdb_features/{pdb}/b_factors.csv", pdb=pdb_ids2),
 		expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=pdb_ids2),
-		"gnomad_extracted.csv.gz",
+		"train_testset1/gnomad_extracted.csv.gz",
 		"data/merge_all/all_possible_values_concat.csv.gz"
+
+
+rule get_dbNSFP_AlphaFold:
+	output:
+		"data/dbNSFP_raw/download_ok",
+		"data/pdb_files/download_ok"
+	params:
+		dbNSFP="data/dbNSFP_raw",
+		alphafold="data/pdb_files"
+	shell:
+		"""
+		homedir=$(pwd)
+		mkdir -p "{params.dbNSFP}"
+		mkdir -p "{params.alphafold}"
+		
+		cd "{params.alphafold}"
+		wget {alphafold_download_adress}
+		tar -xf UP000005640_9606_HUMAN.tar
+		#rm UP000005640_9606_HUMAN.tar
+		
+		cd $homedir
+		
+		cd {params.dbNSFP}
+		wget {dbNSFP_download_adress}
+		unzip dbNSFP4.2a.zip
+		#rm dbNSFP4.2a.zip
+		
+		touch {output}
+		"""
+
+
+rule split_dbNSFP:
+	input:
+		"data/dbNSFP_raw/download_ok",
+		"data/pdb_files/download_ok"
+	output:
+		"data/split_dbNSFP/chr{chr}_ok"
+	params:
+		tmp="data/split_dbNSFP/tmp/chr{chr}/",
+		outdir="data/split_dbNSFP/by_uniprotID/"
+	shell:
+		"""
+		homedir=$(pwd)
+		mkdir -p "{params.tmp}"
+		mkdir -p "{params.outdir}"
+		cd "{params.tmp}"
+		mkdir -p header
+		
+		if (( $(zcat "{input}" | head -n1 > header/header.txt) )) # pipe / head combination produces non-0-exit
+		then
+		echo "not ok"
+		fi
+		
+		zcat "{input}" | tail -n+2 | split -l 200000 - {wildcards.chr}
+		
+		for file in $(ls)
+		do
+		python scripts/unnest_dbNSFP.py {pdb_ids2} $file $(pwd)"/header/header.txt" $(pwd)"/"{params.outdir}
+		done
+		
+		cd $homedir
+		touch "{output}"
+		"""
 
 rule FEATURE_DSSP:
 	input:
@@ -55,10 +129,6 @@ rule FEATURE_DSSP:
 		export DSSP_DIR=$work_dir
 		export PDB_DIR=$work_dir
 		
-		
-		#export LD_LIBRARY_PATH=/home/aschmidt/scratch/conda/envs/dssp/lib/
-
-		
 		mkdir -p $work_dir
 		gunzip -c "{input}" > $temp_pdb
 		
@@ -74,7 +144,6 @@ rule FEATURE_DSSP:
 		$feature $temp_pdb -n1 -w12 | grep ":A@CA$" > $work_dir"{wildcards.pdb_name}_12A.txt"
 		
 		rm $temp_pdb*
-		
 		"""
 
 rule interactions:
@@ -104,6 +173,7 @@ rule interactions:
 		python3 $protinter pdbfile.pdb -hb2 -csv
 		python3 $protinter pdbfile.pdb -hb3 -csv
 		python3 $protinter pdbfile.pdb -within_radius -csv
+		
 		sed -i "s/ //g" result_*
 		rm pdbfile.pdb
 		"""
@@ -176,7 +246,8 @@ rule combine_features_pdb_level:
 
 rule graph_based_analysis_pdb_level:
 	input:
-		"data/combine1_pdb_data/{pdb_name}_combined_features.csv.gz"
+		"data/combine1_pdb_data/{pdb_name}_combined_features.csv.gz",
+		expand("data/chr{chr}_ok", chr=chroms)
 	output:
 		"data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz"
 	params:
