@@ -13,7 +13,7 @@ Extract features from Alphafold2 derived structures ( https://alphafold.ebi.ac.u
 Here the extracted and merged features are analysed and used for prediction of pathogenicity. This part is written in R.
 
 
-### Install
+### Install feature extraction
 This was tested on Ubuntu / Xubuntu Linux using miniconda3.
 
 Make sure to have conda installed, if not install it (e.g. https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ).
@@ -28,7 +28,8 @@ chmod +x tools/dssp/mkdssp
 chmod +x tools/feature/feature-3.1.0/bin/featurize
 ```
 
-### Run
+### Run feature extraction
 ```
-snakemake --cores 1
+snakemake --cores [number of cores you have]
+
 ```
