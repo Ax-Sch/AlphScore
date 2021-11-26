@@ -3,7 +3,6 @@ import os
 
 #### config
 pdb_dir="data/pdb_files/"
-dbnsfp_dir="/media/axel/Dateien/Arbeit_Gen/alphafold2/dbnsfp_data/"
 
 feature_folder="tools/feature/feature-3.1.0/"
 dssp_bin="tools/dssp/mkdssp" #xcat: mkdssp
@@ -39,10 +38,10 @@ alphafold_and_dbnsfp=[ele.split("-")[1] for ele in pdb_ids2]
 
 rule all:
 	input:
-		"data/dbNSFP_raw/download_ok",
+		#"data/dbNSFP_raw/download_ok",
 		expand("data/pdb_features/{pdb}/b_factors.csv", pdb=pdb_ids2),
 		expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=pdb_ids2),
-		"train_testset1/gnomad_extracted.csv.gz",
+		"data/train_testset1/gnomad_extracted.csv.gz",
 		"data/merge_all/all_possible_values_concat.csv.gz"
 
 
@@ -102,7 +101,7 @@ rule split_dbNSFP:
 		
 		for file in $(ls)
 		do
-		python scripts/unnest_dbNSFP.py {pdb_ids2} $file $(pwd)"/header/header.txt" $(pwd)"/"{params.outdir}
+		python scripts/unnest_dbNSFP.py $homedir"config/dbnsfp_files.txt" $(pwd)"/header/header.txt" $file $homedir"/"{params.outdir}
 		done
 		
 		cd $homedir
@@ -252,7 +251,7 @@ rule graph_based_analysis_pdb_level:
 	output:
 		"data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz"
 	params:
-		dbnsfp_dir,
+		"data/split_dbNSFP/by_uniprotID/",
 		pdb_path=pdb_dir+"{pdb_name}.pdb",
 		partition="batch"
 	resources: time_job=720, mem_mb=8000
@@ -266,7 +265,7 @@ rule combine_proteins:
 	output:
 		"data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz"
 	params:
-		dbnsfp_dir,
+		"data/split_dbNSFP/by_uniprotID/",
 		partition="batch"
 	resources: time_job=720, mem_mb=64000
 	run:
@@ -303,7 +302,7 @@ rule extract_clinvar_gnomad:
 	input:
 		expand("data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz", uniprot_id=uniprot_ids_dbnsfp)
 	output:
-		csv_gz_out="train_testset1/gnomad_extracted.csv.gz"
+		csv_gz_out="data/train_testset1/gnomad_extracted.csv.gz"
 	params:
 		partition="batch",
 		loaction_csvgzs="data/combine2_protein/"
