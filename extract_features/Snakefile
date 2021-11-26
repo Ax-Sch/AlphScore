@@ -6,7 +6,8 @@ pdb_dir="data/pdb_files/"
 dbnsfp_dir="/media/axel/Dateien/Arbeit_Gen/alphafold2/dbnsfp_data/"
 
 feature_folder="tools/feature/feature-3.1.0/"
-dssp_bin="dssp" #xcat: mkdssp
+dssp_bin="tools/dssp/mkdssp" #xcat: mkdssp
+dssp_dir="tools/dssp/" #xcat: mkdssp
 protinter_bin="tools/protinter/protinter_mod2" 
 
 alphafold_download_adress="https://ftp.ebi.ac.uk/pub/databases/alphafold/UP000005640_9606_HUMAN.tar"
@@ -71,6 +72,7 @@ rule get_dbNSFP_AlphaFold:
 		unzip dbNSFP4.2a.zip
 		#rm dbNSFP4.2a.zip
 		
+		cd $homedir
 		touch {output}
 		"""
 
@@ -129,6 +131,8 @@ rule FEATURE_DSSP:
 		
 		mkdir -p $work_dir
 		gunzip -c "{input}" > $temp_pdb
+		
+		export LD_LIBRARY_PATH={dssp_dir}
 		
 		#run dssp
 		cat $temp_pdb | {dssp_bin} -i /dev/stdin > $work_dir"1A1A.dssp"
