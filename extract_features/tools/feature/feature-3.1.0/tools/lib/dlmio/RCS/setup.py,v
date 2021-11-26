@@ -1,0 +1,33 @@
+head	1.1;
+access;
+symbols;
+locks
+	mliang:1.1; strict;
+comment	@# @;
+
+
+1.1
+date	2004.04.27.17.47.46;	author mliang;	state Exp;
+branches;
+next	;
+
+
+desc
+@Makefile
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@from distutils.core import setup,Extension
+
+module1 = Extension('dlmio',sources=['dlmio.c'])
+
+setup(name = 'dlmio',
+        version = '1.0', 
+        description = 'Delimited file reading', 
+        ext_modules = [module1])
+@

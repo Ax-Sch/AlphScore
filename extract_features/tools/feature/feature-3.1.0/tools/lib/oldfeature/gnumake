@@ -1,0 +1,5 @@
+aclocal
+autoconf
+automake -a-copy
+./configure
+make distcheck

@@ -1,0 +1,12 @@
+../src/featurize -P ./data/serprot/trypsin_ser_og.pos.ptf > ./testout/trypsin_ser_og.pos.ff 2>/dev/null
+
+
+
+../src/featurize -P ./data/serprot/trypsin_ser_og.neg.ptf > ./testout/trypsin_ser_og.neg.ff 2>/dev/null
+
+
+
+../src/buildmodel ./testout/trypsin_ser_og.pos.ff ./testout/trypsin_ser_og.neg.ff > ./testout/trypsin_ser_og.model
+
+
+

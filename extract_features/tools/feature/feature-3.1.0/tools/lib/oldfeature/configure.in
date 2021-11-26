@@ -1,0 +1,17 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(feature.py)
+AM_INIT_AUTOMAKE(feature-scripts,1.0)
+
+dnl Checks for programs.
+AC_PROG_INSTALL
+AM_PATH_PYTHON
+
+dnl Checks for libraries.
+
+dnl Checks for header files.
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+
+dnl Checks for library functions.
+
+AC_OUTPUT(Makefile)
