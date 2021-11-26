@@ -78,7 +78,6 @@ rule get_dbNSFP_AlphaFold:
 rule split_dbNSFP:
 	input:
 		"data/dbNSFP_raw/download_ok",
-		"data/pdb_files/download_ok"
 	output:
 		"data/split_dbNSFP/chr{chr}_ok"
 	params:
@@ -110,7 +109,7 @@ rule split_dbNSFP:
 
 rule translate_to_pdb_ids:
 	input:
-		expand("data/split_dbNSFP/chr{chr}_ok", chr=chroms)
+		expand("data/pdb_files/download_ok", chr=chroms)
 	output:
 		expand(pdb_dir+"{pdb_name}.pdb.gz", pdb_name=pdb_ids2)
 
