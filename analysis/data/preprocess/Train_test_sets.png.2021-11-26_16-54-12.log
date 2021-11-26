@@ -1,0 +1,11 @@
+INFO [2021-11-26 16:54:12] $x
+INFO [2021-11-26 16:54:12] list(gnomad_no_cv21to18_temp, clinvar_no_cv21to18_no_gnomad_temp, 
+INFO [2021-11-26 16:54:12]     cv18_to_21_CV_test_temp, cv18_to_21_noCV_just_gnomad_temp)
+INFO [2021-11-26 16:54:12] 
+INFO [2021-11-26 16:54:12] $category.names
+INFO [2021-11-26 16:54:12] c("gnomad_no_cv21to18_temp", "clinvar_no_cv21to18_no_gnomad_temp", 
+INFO [2021-11-26 16:54:12]     "cv18_to_21_CV_test_temp", "cv18_to_21_noCV_just_gnomad_temp")
+INFO [2021-11-26 16:54:12] 
+INFO [2021-11-26 16:54:12] $filename
+INFO [2021-11-26 16:54:12] [1] "Train_test_sets.png"
+INFO [2021-11-26 16:54:12] 

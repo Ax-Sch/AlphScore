@@ -1,0 +1,9 @@
+INFO [2021-11-26 16:54:03] $x
+INFO [2021-11-26 16:54:03] list(cv_temp, gn_temp)
+INFO [2021-11-26 16:54:03] 
+INFO [2021-11-26 16:54:03] $category.names
+INFO [2021-11-26 16:54:03] c("ClinVar", "gnomAD")
+INFO [2021-11-26 16:54:03] 
+INFO [2021-11-26 16:54:03] $filename
+INFO [2021-11-26 16:54:03] [1] "ClinVar_vs_gnomAD_benign.png"
+INFO [2021-11-26 16:54:03] 

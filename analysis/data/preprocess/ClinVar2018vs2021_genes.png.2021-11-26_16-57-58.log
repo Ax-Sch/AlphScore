@@ -1,0 +1,9 @@
+INFO [2021-11-26 16:57:58] $x
+INFO [2021-11-26 16:57:58] list(cv_18prot$Uniprot_acc_split, cv_21prot$Uniprot_acc_split)
+INFO [2021-11-26 16:57:58] 
+INFO [2021-11-26 16:57:58] $category.names
+INFO [2021-11-26 16:57:58] c("ClinVar2018", "ClinVar2021")
+INFO [2021-11-26 16:57:58] 
+INFO [2021-11-26 16:57:58] $filename
+INFO [2021-11-26 16:57:58] [1] "ClinVar2018vs2021_genes.png"
+INFO [2021-11-26 16:57:58] 
