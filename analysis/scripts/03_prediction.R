@@ -3,6 +3,7 @@ library(pROC)
 library(readxl)
 library(caret)
 library(optparse)
+set.seed(1)
 
 option_list = list(
   make_option(c("-c", "--csv_location"), type="character", default="data/recalibrate/variants_preprocessed_recalibrated.csv.gz", 
@@ -41,20 +42,14 @@ opt = parse_args(OptionParser(option_list=option_list))
 #opt$csv_location="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz"
 
 pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
-#pdf(NULL)
-
 
 variants_org<-read_csv(opt$csv_location, na=c(".","NA", NA))
-write_tsv(as_tibble(colnames(variants_org)), file="available_colnames.tsv")
 colnames_usage <- read_excel(opt$excel_locataion, col_types="text")
 
-#### experimental modifications of variables:
-mean_pli<-mean(variants_org$pLI, na.rm = TRUE)
-variants<-variants_org %>%
-  mutate(pLI=ifelse(is.na(pLI), mean_pli,pLI))
+dir.create("data/prediction")
+setwd("data/prediction")
 
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
-
 toAS_properties<-variants  %>%
   filter(gnomadSet == 1, b_factor>opt$b_factor_param)%>%
   group_by(from_AS) %>%
@@ -62,10 +57,8 @@ toAS_properties<-variants  %>%
   summarize_all(mean)
 colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 
-
 variants<-variants%>%
-  left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))%>%
-  mutate(CADD_raw_scaled=scale(CADD_raw))
+  left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))
 
 variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]<-
   variants[, sel_vars_to] - 
@@ -75,8 +68,6 @@ variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
 colnames_prediction<-c(colnames(toAS_properties %>% dplyr::select(-from_AS_toAS)), 
                        (colnames_usage %>% filter(!is.na(for_prediction)))$value)
 
-
-
 train_dataset<-variants %>% 
     filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
     mutate(mean_revel_global=mean(REVEL_score, na.rm=TRUE)) %>%
@@ -85,13 +76,11 @@ train_dataset<-variants %>%
     ungroup()%>%
     dplyr::select(c(colnames_prediction, "outcome"))
 
-
 #https://machinelearningmastery.com/feature-selection-with-the-caret-r-package/
 zv <- apply(train_dataset, 2, function(x) length(unique(x)) == 1)
 dfr <- train_dataset[, !zv]
 n=length(colnames(dfr))
 correlationMatrix <- cor(dfr,use="complete.obs")
-
 
 cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
 colnames_new<-colnames(cols_removed)
@@ -99,8 +88,6 @@ write_tsv(as_tibble(colnames_new), file="variables_used.tsv")
 
 train_dataset<-train_dataset[,colnames_new] 
 train_dataset<-train_dataset[complete.cases(train_dataset),]
-
-set.seed(1)
 
 test_dataset<-variants %>% 
   filter(clinvar_no_cv21to18_no_gnomad==TRUE)
@@ -117,11 +104,8 @@ ranger_fit<-function(xtrain_dataset){
   ) 
   return(model1)
 }
-
 ranger_predict<-function(dataset, modelx){
-  return(predict(modelx, dataset)$predictions)
-}
-
+  return(predict(modelx, dataset)$predictions) }
 
 extraT_fit<-function(xtrain_dataset){
   library(extraTrees)
@@ -133,15 +117,9 @@ extraT_fit<-function(xtrain_dataset){
   ) 
   return(model1)
 }
-
 extraT_predict<-function(dataset, modelx){
-  
   return(
-  predict(modelx, as.matrix(dataset %>% dplyr::select(colnames_new) %>% dplyr::select(-outcome) )) 
-)
-}
-
-
+  predict(modelx, as.matrix(dataset %>% dplyr::select(colnames_new) %>% dplyr::select(-outcome)))   )}
 
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
@@ -149,7 +127,6 @@ xgboost_fit<-function(xtrain_dataset){
   train_i<-sample(1:n_ds,as.integer(n_ds*0.8))
   train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[train_i] )
   #test_ds<-xgb.DMatrix(data=as.matrix(test_dataset %>% dplyr::select(colnames_new, -outcome)), label=test_dataset$outcome )
-  
   test_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[-train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[-train_i] )
   watchlist=list(train=train_ds, test=test_ds)
   
@@ -165,7 +142,6 @@ xgboost_fit<-function(xtrain_dataset){
     #eval_metric="auc",
     objective = "binary:logistic",  # for regression models
     verbose = 1)
-  
   return(model1)
 }
 
@@ -186,6 +162,7 @@ predict_model<-xgboost_predict
   fit_model<-extraT_fit
   predict_model<-extraT_predict
 }
+
 
 
 model1<-fit_model(train_dataset %>% dplyr::select(colnames_new))
@@ -210,14 +187,6 @@ model2 <- glm(outcome ~ . , family=binomial(link='logit'),
               data=test_dataset %>% dplyr::select(outcome, predicted, CADD_raw) %>%
                 filter(complete.cases(.)))
 
-#library(e1071)
-#test_dataset$predicted_scaled<-scale(test_dataset$predicted)
-
-#classifierR = svm(formula = outcome ~ predicted_scaled + CADD_raw_scaled,
-#                 data = test_dataset,
-#                kernel = 'linear')
-
-
 
 test_dataset2<-variants %>% 
   filter(cv18_to_21_CV_test==TRUE)
@@ -227,8 +196,6 @@ test_dataset2$predicted<-predict_model(test_dataset2 %>% dplyr::select(colnames_
 test_dataset2$predicted_scaled<-scale(test_dataset2$predicted)
 
 test_dataset2$predicted2<-predict(model2, test_dataset2)
-#test_dataset2$predicted3<-predict(classifierR, test_dataset2[,c("predicted_scaled", "CADD_raw_scaled")])
-
 
 
 roc_rose <- plot(roc(test_dataset2$outcome, test_dataset2$CADD_raw), print.auc = TRUE, col = "red")
@@ -236,9 +203,6 @@ roc_rose <- plot(roc(test_dataset2$outcome, test_dataset2$predicted2), print.auc
                  col = "blue", print.auc.y = .2, add = TRUE)
 roc_rose <- plot(roc(test_dataset2$outcome, test_dataset2$predicted), print.auc = TRUE, 
                  col = "green", print.auc.y = .4, add = TRUE)
-#roc_rose <- plot(roc(test_dataset2$outcome, test_dataset2$predicted3), print.auc = TRUE, 
-#                 col = "black", print.auc.y = .6, add = TRUE)
-
 print(roc_rose)
 
 auc2=roc_rose$auc
