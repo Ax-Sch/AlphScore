@@ -6,7 +6,7 @@ library(optparse)
 set.seed(1)
 
 option_list = list(
-  make_option(c("-c", "--csv_location"), type="character", default="data/recalibrate/variants_preprocessed_recalibrated.csv.gz", 
+  make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz", 
               help="csv.gz file"),
   make_option(c("-e", "--excel_locataion"), type="character", default="config/available_colnames_W_surr.xlsx", 
               help="Excel file listing columns to use"),
@@ -33,6 +33,8 @@ option_list = list(
   make_option(c("-d", "--min_child_weight_param"), type="integer", default=1, 
               help="min child weight, xgboost"),
   make_option(c("-g", "--gamma_param"), type="integer", default=90, 
+              help="gamma value, xgboost"),
+  make_option(c("-o", "--out_folder"), type="character", default="prediction", 
               help="gamma value, xgboost")
   
 )
@@ -41,19 +43,21 @@ opt = parse_args(OptionParser(option_list=option_list))
 #DEBUG:
 #opt$csv_location="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz"
 
-pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 
-variants_org<-read_csv(opt$csv_location, na=c(".","NA", NA))
+
+variants<-read_csv(opt$csv_location, na=c(".","NA", NA))
 colnames_usage <- read_excel(opt$excel_locataion, col_types="text")
 
-dir.create("data/prediction")
-setwd("data/prediction")
+work_dir=paste0("data/", opt$out_folder)
+dir.create(work_dir)
+setwd(work_dir)
+pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
 toAS_properties<-variants  %>%
   filter(gnomadSet == 1, b_factor>opt$b_factor_param)%>%
   group_by(from_AS) %>%
-  dplyr::select(sel_vars_to)%>%
+  dplyr::select(all_of(sel_vars_to))%>%
   summarize_all(mean)
 colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 
@@ -119,7 +123,7 @@ extraT_fit<-function(xtrain_dataset){
 }
 extraT_predict<-function(dataset, modelx){
   return(
-  predict(modelx, as.matrix(dataset %>% dplyr::select(colnames_new) %>% dplyr::select(-outcome)))   )}
+  predict(modelx, as.matrix(dataset %>% dplyr::select(all_of(colnames_new)) %>% dplyr::select(-outcome)))   )}
 
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
@@ -165,14 +169,14 @@ predict_model<-xgboost_predict
 
 
 
-model1<-fit_model(train_dataset %>% dplyr::select(colnames_new))
+model1<-fit_model(train_dataset %>% dplyr::select(all_of(colnames_new)))
 
-train_dataset$predicted<-predict_model(train_dataset %>% dplyr::select(colnames_new), model1)
+train_dataset$predicted<-predict_model(train_dataset %>% dplyr::select(all_of(colnames_new)), model1)
 roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted), print.auc = TRUE, col = "red")
 auc_train=roc_rose$auc
 
 
-test_dataset$predicted<-predict_model(test_dataset %>% dplyr::select(colnames_new), model1)
+test_dataset$predicted<-predict_model(test_dataset %>% dplyr::select(all_of(colnames_new)), model1)
 
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$CADD_raw), print.auc = TRUE, col = "red")
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted), print.auc = TRUE, 
@@ -192,7 +196,7 @@ test_dataset2<-variants %>%
   filter(cv18_to_21_CV_test==TRUE)
 
 test_dataset2<-test_dataset2[complete.cases(test_dataset2[,c(colnames_new, "outcome")]), ]
-test_dataset2$predicted<-predict_model(test_dataset2 %>% dplyr::select(colnames_new), model1)
+test_dataset2$predicted<-predict_model(test_dataset2 %>% dplyr::select(all_of(colnames_new)), model1)
 test_dataset2$predicted_scaled<-scale(test_dataset2$predicted)
 
 test_dataset2$predicted2<-predict(model2, test_dataset2)
@@ -206,12 +210,12 @@ roc_rose <- plot(roc(test_dataset2$outcome, test_dataset2$predicted), print.auc 
 print(roc_rose)
 
 auc2=roc_rose$auc
-save_tibble<-data.frame(auc1=auc1, auc2=auc2, condition=prefix, params=I(list(args)), auc_train=auc_train)
+save_tibble<-data.frame(auc1=auc1, auc2=auc2, condition=opt$prefix, params=I(list(opt)), auc_train=auc_train)
 
-write.csv2(x=save_tibble, file=paste0(prefix, "_results.tsv"))
+write.csv2(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
 
 
-if (method_pred=="randomforest"){
+if (opt$method_pred=="randomforest"){
 ##### CHECK properties of models
 var_imp<-tibble(importance=as.vector(model1$variable.importance), variable=names(model1$variable.importance))
 
@@ -225,7 +229,7 @@ var_importance<-ggplot(var_imp, aes(x=reorder(variable,importance), y=importance
 
 remove_vars<-(var_imp %>% arrange(importance))[1:40,]$variable
 
-ggsave(filename=paste0(prefix,"_importance.pdf"), plot=var_importance, height=49)
+ggsave(filename=paste0(opt$prefix,"_importance.pdf"), plot=var_importance, height=49)
 }
 ggplot(test_dataset2)+
   geom_point(aes(x=predicted, y=CADD_raw), alpha=0.3)+
