@@ -253,7 +253,6 @@ rule combine_features_pdb_level:
 rule graph_based_analysis_pdb_level:
 	input:
 		"data/combine1_pdb_data/{pdb_name}_combined_features.csv.gz",
-		expand("data/chr{chr}_ok", chr=chroms)
 	output:
 		"data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz"
 	params:
