@@ -1,8 +1,18 @@
 library(tidyverse)
 library(VennDiagram)
 library(data.table)
+library(optparse)
+set.seed(1)
 
-variants<-fread("../extract_features/data/train_testset1/gnomad_extracted.csv.gz", header=TRUE) 
+option_list = list(
+  make_option(c("-i", "--input"), type="character", default="../extract_features/data/train_testset1/gnomad_extracted.csv.gz", 
+              help="csv.gz file")
+)
+opt = parse_args(OptionParser(option_list=option_list))
+
+print(opt$input)
+variants<-fread(opt$input, header=TRUE)
+
 to_AS_table<-read_tsv("config/to_AS_table.txt")
 constraint_scores<-read_tsv("config/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz")
 cv_ids18<-read_tsv("config/clinvar_var_ids_2018.txt", col_names=c("id"), col_types=cols("id"= col_character())) 
@@ -34,6 +44,7 @@ variants<-variants%>%
   left_join(constraint_scores, by=c("Uniprot_acc_split"="uniprot"))%>%
   mutate(pLI05=as.integer(pLI>0.5))
 
+if (sum(variants$outcome==1)>0){
 cv_temp<-(variants %>% filter(gnomadSet==0, outcome==0))$var_id_genomic
 gn_temp<-(variants %>% filter(gnomadSet==1, outcome==0))$var_id_genomic
 venn.diagram(x=list(cv_temp, gn_temp),category.names = c("ClinVar" , "gnomAD"), filename = 'ClinVar_vs_gnomAD_benign.png')
@@ -72,9 +83,10 @@ cv18_to_21_CV_test_temp<-(variants %>% filter(cv18_to_21_CV_test==TRUE))$var_id_
 cv18_to_21_noCV_just_gnomad_temp<-(variants %>% filter(cv18_to_21_noCV_just_gnomad==TRUE))$var_id_genomic
 
 venn.diagram(x=list(gnomad_no_cv21to18_temp, clinvar_no_cv21to18_no_gnomad_temp, cv18_to_21_CV_test_temp,cv18_to_21_noCV_just_gnomad_temp ),category.names = c("gnomad_no_cv21to18_temp" , "clinvar_no_cv21to18_no_gnomad_temp", "cv18_to_21_CV_test_temp", "cv18_to_21_noCV_just_gnomad_temp"), filename = 'Train_test_sets.png')
+}
 
 colnames(variants)<-gsub("++","..",colnames(variants), fixed=TRUE)
 gc()
 
-write_csv(variants, file="variants_preprocessed.csv.gz")
+write_csv(variants, file=paste0(basename(opt$input), "preprocessed.csv.gz"))
 

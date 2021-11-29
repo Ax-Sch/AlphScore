@@ -10,7 +10,7 @@ option_list = list(
               help="csv.gz file"),
   make_option(c("-e", "--excel_locataion"), type="character", default="config/available_colnames_W_surr.xlsx", 
               help="Excel file listing columns to use"),
-  make_option(c("-p", "--prefix"), type="character", default="abc", 
+  make_option(c("-p", "--prefix"), type="character", default="base_model", 
               help="Prefix for output"),
   make_option(c("-m", "--method_pred"), type="character", default="randomforest", 
               help="Prediction method [randomforest, xgboost, extratree]"),
@@ -35,7 +35,11 @@ option_list = list(
   make_option(c("-g", "--gamma_param"), type="integer", default=90, 
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="prediction", 
-              help="gamma value, xgboost")
+              help="gamma value, xgboost"),
+  make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
+              help="Write predictions of test-dataset to file"),
+  make_option(c("-v", "--validation_set"), type="character", default="", 
+              help="validation set to calculate scores of")
   
 )
 
@@ -47,6 +51,10 @@ opt = parse_args(OptionParser(option_list=option_list))
 
 variants<-read_csv(opt$csv_location, na=c(".","NA", NA))
 colnames_usage <- read_excel(opt$excel_locataion, col_types="text")
+
+if (opt$validation_set != ""){
+  validation_set<-read_csv(opt$validation_set)
+}
 
 work_dir=paste0("data/", opt$out_folder)
 dir.create(work_dir)
@@ -88,7 +96,6 @@ correlationMatrix <- cor(dfr,use="complete.obs")
 
 cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
 colnames_new<-colnames(cols_removed)
-write_tsv(as_tibble(colnames_new), file="variables_used.tsv")
 
 train_dataset<-train_dataset[,colnames_new] 
 train_dataset<-train_dataset[complete.cases(train_dataset),]
@@ -235,3 +242,23 @@ ggplot(test_dataset2)+
   geom_point(aes(x=predicted, y=CADD_raw), alpha=0.3)+
   facet_wrap(~outcome)
 
+if (opt$write_dataset){
+  write_csv(x=test_dataset2, file=paste0(opt$prefix,"_test_dataset2.csv.gz"))
+}
+
+if (opt$validation_set != ""){
+
+validation_set<-validation_set%>%
+  left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))
+
+validation_set[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]<-
+  validation_set[, sel_vars_to] - 
+  validation_set[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
+
+validation_set<-validation_set[complete.cases(validation_set[,c(colnames_prediction, "outcome", "CADD_raw")]), ]
+
+validation_set$predicted<-predict_model(validation_set %>% dplyr::select(all_of(colnames_new)), model1)
+validation_set$predicted2<-predict(model2, validation_set)
+
+write_csv(x=validation_set, file=paste0(opt$prefix,"_validation_set.csv.gz"))
+}

@@ -1,6 +1,14 @@
 library(tidyverse)
+library(optparse)
+set.seed(1)
 
-variants_org<-read_csv("data/preprocess/variants_preprocessed.csv.gz")
+option_list = list(
+  make_option(c("-i", "--input"), type="character", default="data/preprocess/gnomad_extracted_v2.csv.gzpreprocessed.csv.gz", 
+              help="csv.gz file")
+)
+opt = parse_args(OptionParser(option_list=option_list))
+
+variants_org<-read_csv(opt$input)
 
 dir.create("data/recalibrate")
 setwd("data/recalibrate")
