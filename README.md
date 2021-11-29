@@ -1,4 +1,5 @@
 # AlphScore
+qwertz
 
 ### Overview
 Improving pathogenicity prediction of missense variants by using AlphaFold-derived features
@@ -15,7 +16,6 @@ Extract features from Alphafold2 derived structures ( https://alphafold.ebi.ac.u
 
 Here the extracted and merged features are analysed and used for prediction of pathogenicity. This part is written in R.
 
-abcdef
 
 ### Install dependencies of feature extraction
 This workwas tested on Ubuntu / Xubuntu Linux using miniconda3.
