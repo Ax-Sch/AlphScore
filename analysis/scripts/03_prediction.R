@@ -109,7 +109,8 @@ ranger_fit<-function(xtrain_dataset){
   library(ranger)
   model1<-ranger(outcome ~ ., 
                  data=xtrain_dataset, 
-                 importance="impurity", max.depth=opt$max_depth_param,
+                 importance="permutation", 
+                 max.depth=opt$max_depth_param,
                  num.trees = opt$num_trees_param,
                  min.node.size = opt$min_node_param
   ) 
@@ -177,6 +178,9 @@ predict_model<-xgboost_predict
 
 
 model1<-fit_model(train_dataset %>% dplyr::select(all_of(colnames_new)))
+
+## OOB error:
+#model1$prediction.error
 
 train_dataset$predicted<-predict_model(train_dataset %>% dplyr::select(all_of(colnames_new)), model1)
 roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted), print.auc = TRUE, col = "red")

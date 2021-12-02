@@ -35,10 +35,10 @@ ggplot(test_dataset2)+
 validation_dataset<-validation_dataset[is.na(validation_dataset$gnomAD_genomes_AC) & is.na(validation_dataset$gnomAD_genomes_AC),]
 
 ggplot(validation_dataset)+
-  geom_point(aes(x=CADD_raw, y=Score_exp))
+  geom_point(aes(x=CADD_raw, y=Score_exp), alpha=0.3)
 
 ggplot(validation_dataset)+
-  geom_point(aes(x=predicted, y=Score_exp))
+  geom_point(aes(x=predicted, y=Score_exp), alpha=0.3)
 
 validation_dataset$outcome<-validation_dataset$Score_exp<0.5
 ggplot(validation_dataset)+
