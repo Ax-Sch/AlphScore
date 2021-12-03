@@ -14,7 +14,7 @@ option_list = list(
               help="Prefix for output"),
   make_option(c("-m", "--method_pred"), type="character", default="randomforest", 
               help="Prediction method [randomforest, xgboost, extratree]"),
-  make_option(c("-n", "--num_trees_param"), type="integer", default=500, 
+  make_option(c("-n", "--num_trees_param"), type="integer", default=2000, 
               help="Number of trees to use / or number of rounds"),
   make_option(c("-x", "--max_depth_param"), type="integer", default=6, 
               help="Maximal depth of trees"),
@@ -25,17 +25,17 @@ option_list = list(
   make_option(c("-s", "--subsample_param"), type="double", default=0.8, 
               help="Subsample parameter, xgboost"),
   make_option(c("-i", "--min_node_param"), type="integer", default=50, 
-              help="Min Node parameter, xgboost"),
+              help="randomforest: min.node.size, xgboost: min node parameter, extratree: nodesize"),
   make_option(c("-r", "--cor_param"), type="double", default=0.999999, 
               help="Just keep columns that have a lower correlation than this value, general"),
   make_option(c("-b", "--b_factor_param"), type="integer", default=90, 
               help="pLDDT value to filter positions that will be used to generate the average values of amino acids, general"),
-  make_option(c("-d", "--min_child_weight_param"), type="integer", default=1, 
+  make_option(c("-d", "--min_child_weight_param"), type="integer", default=0, 
               help="min child weight, xgboost"),
-  make_option(c("-g", "--gamma_param"), type="integer", default=90, 
+  make_option(c("-g", "--gamma_param"), type="integer", default=0, 
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="prediction", 
-              help="gamma value, xgboost"),
+              help="name of folder to store output"),
   make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
               help="Write predictions of test-dataset to file"),
   make_option(c("-v", "--validation_set"), type="character", default="", 
@@ -84,12 +84,12 @@ colnames_prediction<-c(colnames(toAS_properties %>% dplyr::select(-from_AS_toAS)
                        (colnames_usage %>% filter(!is.na(for_prediction)))$value)
 
 train_dataset<-variants %>% 
-    filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
-    mutate(mean_revel_global=mean(REVEL_score, na.rm=TRUE)) %>%
-    group_by(from_AS, to_AS, outcome)%>%
-    mutate(mean_revel=mean(REVEL_score, na.rm=TRUE))%>%
-    ungroup()%>%
-    dplyr::select(c(colnames_prediction, "outcome"))
+  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
+  mutate(mean_revel_global=mean(REVEL_score, na.rm=TRUE)) %>%
+  group_by(from_AS, to_AS, outcome)%>%
+  mutate(mean_revel=mean(REVEL_score, na.rm=TRUE))%>%
+  ungroup()%>%
+  dplyr::select(c(colnames_prediction, "outcome"))
 
 #https://machinelearningmastery.com/feature-selection-with-the-caret-r-package/
 zv <- apply(train_dataset, 2, function(x) length(unique(x)) == 1)
@@ -119,28 +119,34 @@ extraT_fit<-function(xtrain_dataset){
   options(java.parameters = "-Xmx8g")
   library(extraTrees)
   model1<-extraTrees(
-                 x = as.matrix(xtrain_dataset %>% dplyr::select(-outcome)),
-                 y =xtrain_dataset$outcome,
-                 ntree = opt$num_trees_param,
-                 numThreads=7
+    x = as.matrix(xtrain_dataset %>% dplyr::select(-outcome)),
+    y = xtrain_dataset$outcome,
+    ntree = opt$num_trees_param,
+    nodesize = opt$min_node_param,
+    numThreads=7
   ) 
   return(model1)
 }
 extraT_predict<-function(dataset, modelx){
   return(
-  predict(modelx, as.matrix(dataset %>% dplyr::select(all_of(colnames_new)) %>% dplyr::select(-outcome)))   )}
+    predict(modelx, as.matrix(dataset %>% dplyr::select(all_of(colnames_new)) %>% dplyr::select(-outcome)))   )}
 
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
+  set.seed(1)
   n_ds<-nrow(xtrain_dataset)
   train_i<-sample(1:n_ds,as.integer(n_ds*0.8))
   train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[train_i] )
   test_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[-train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[-train_i] )
   watchlist=list(train=train_ds, test=test_ds)
   
-  params <- list(max_depth = opt$max_depth_param, subsample=opt$subsample_param, 
-                 eta=opt$eta_param, lambda=opt$lambda_param, alpha=0, 
-                 gamma=opt$gamma_param, min_child_weight=opt$min_child_weight_param)
+  params <- list(max_depth = opt$max_depth_param, 
+                 subsample=opt$subsample_param, 
+                 eta=opt$eta_param, 
+                 lambda=opt$lambda_param, 
+                 alpha=0, 
+                 gamma=opt$gamma_param, 
+                 min_child_weight=opt$min_child_weight_param)
   model1<-xgb.train(
     data=train_ds,
     watchlist = watchlist,
@@ -161,8 +167,8 @@ xgboost_predict<-function(dataset, modelx){
 }
 
 if (opt$method_pred=="xgboost"){
-fit_model<-xgboost_fit
-predict_model<-xgboost_predict
+  fit_model<-xgboost_fit
+  predict_model<-xgboost_predict
 } else if (opt$method_pred=="randomforest") {
   fit_model<-ranger_fit
   predict_model<-ranger_predict
@@ -178,7 +184,7 @@ if (opt$k_fold_cross_val == TRUE){
   genes<-as_tibble(genes)
   genes$index<-as.integer(runif(nrow(genes),1,6))
   
-
+  
   glm_cv<-data.frame()
   
   cc<-complete.cases(variants[, c(colnames_new, "outcome")])
@@ -231,11 +237,11 @@ if (opt$k_fold_cross_val == TRUE){
     
     plot_auc_CADD_non_h <- plot(roc(non_h_cv_test$outcome, non_h_cv_test$CADD_raw), print.auc = TRUE, col = "red")
     plot_auc_Alph_non_h<- plot(roc(non_h_cv_test$outcome, non_h_cv_test$predicted_Alph), print.auc = TRUE, 
-                                 col = "green", print.auc.y = .2, add = TRUE)
+                               col = "green", print.auc.y = .2, add = TRUE)
     
     plot_auc_CADD_h <- plot(roc(h_cv_test$outcome, h_cv_test$CADD_raw), print.auc = TRUE, col = "red", add=FALSE)
     plot_auc_Alph_h<- plot(roc(h_cv_test$outcome, h_cv_test$predicted_glm), print.auc = TRUE, 
-                             col = "blue", print.auc.y = .2, add = TRUE)
+                           col = "blue", print.auc.y = .2, add = TRUE)
     plot_auc_glm_h <- plot(roc(h_cv_test$outcome, h_cv_test$predicted_Alph), print.auc = TRUE, 
                            col = "green", print.auc.y = .4, add = TRUE)
   }
@@ -255,15 +261,15 @@ if (opt$k_fold_cross_val == TRUE){
   
   train_dataset$predicted_Alph<-predict_model(train_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
   roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "red")
-
+  
   interim_dataset$predicted_Alph<-predict_model(interim_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
   
   roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$CADD_raw), print.auc = TRUE, col = "red")
   roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$predicted_Alph), print.auc = TRUE, 
                    col = "green", print.auc.y = .4, add = TRUE)
-
   
-  model2 <- glm(outcome ~ . , family=binomial(link='logit'),
+  
+  model_glm <- glm(outcome ~ . , family=binomial(link='logit'),
                 data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
                   filter(complete.cases(.)))
   
@@ -274,7 +280,7 @@ if (opt$k_fold_cross_val == TRUE){
   test_dataset$predicted_Alph<-predict_model(test_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
   test_dataset$predicted_scaled<-scale(test_dataset$predicted_Alph)
   
-  test_dataset$predicted_glm<-predict(model2, test_dataset)
+  test_dataset$predicted_glm<-predict(model_glm, test_dataset)
   
   
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$CADD_raw), print.auc = TRUE, col = "red")
@@ -282,8 +288,8 @@ if (opt$k_fold_cross_val == TRUE){
                    col = "blue", print.auc.y = .2, add = TRUE)
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
                    col = "green", print.auc.y = .4, add = TRUE)
-
-    save_tibble <- rbind(save_tibble, 
+  
+  save_tibble <- rbind(save_tibble, 
                        tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
                               Alph_OOB=ifelse((opt$method_pred=="randomforest"), gnomad_model_Alph$prediction.error, NA),
                               auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
@@ -296,7 +302,7 @@ if (opt$k_fold_cross_val == TRUE){
                               test_nrow=nrow(test_dataset),
                               condition=opt$prefix, 
                               params=I(list(opt))))
-
+  
   write.csv2(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
   
   ggplot(test_dataset)+
@@ -337,7 +343,7 @@ if (opt$validation_set != ""){
   validation_set<-validation_set[complete.cases(validation_set[,c(colnames_new, "outcome", "CADD_raw")]), ]
   
   validation_set$predicted<-predict_model(validation_set %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
-  validation_set$predicted_glm<-predict(model2, validation_set)
+  validation_set$predicted_glm<-predict(model_glm, validation_set)
   
   write_csv(x=validation_set, file=paste0(opt$prefix,"_validation_set.csv.gz"))
 }
