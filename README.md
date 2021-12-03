@@ -1,27 +1,23 @@
 # AlphScore
 
-### Overview
-Improving pathogenicity prediction of missense variants by using AlphaFold-derived features
+This code belongs to the project "Improving pathogenicity prediction of missense variants by using AlphaFold-derived features" and is structured into two folders: 
 
-This Repository is structured into two parts: 
+### extract_features
 
-- Extract features:
-
-Extract features from Alphafold2 derived structures ( https://alphafold.ebi.ac.uk/ ) using the tools DSSP, FEATURE, protinter ( https://github.com/maxibor/protinter ) and the python modules biopython, biopandas and networkx. Finally the generated features are combined added to the data of dbNSFP 4.2.
+Extracts features of each amino acid from AlphaFold2 structures ( https://alphafold.ebi.ac.uk/ ) using a snakemake workflow. For feature extraction the tools DSSP, FEATURE, protinter ( https://github.com/maxibor/protinter ) and the python modules biopython, biopandas and networkx are used. Finally, the generated features are added to the data of dbNSFP 4.2 and dbNSFP is used to extract variants relevant for the analysis part (see below).
+Workflow:
 ![alt text](https://github.com/Ax-Sch/AlphScore/blob/main/Overview.png?raw=true)
 
+### analysis:
 
-- Analysis:
-
-Here the extracted and merged features are analysed and used for prediction of pathogenicity. This part is written in R.
-
+Here the extracted variants with the AlphFold derived features are analysed and used for prediction of pathogenicity.
 
 ### Install dependencies of feature extraction
-This workwas tested on Ubuntu / Xubuntu Linux using miniconda3.
+This code was tested on Ubuntu / Xubuntu Linux using miniconda3.
 
-Make sure to have conda installed, if not install it (e.g. https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ).
+Conda should be installed, if you need to install it (e.g. https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ).
 
-Clone or download the repository to a directory with plenty of free storage, then change directory into the AlphScore-main folder. Then set up the conda environment:
+Clone or download the repository to a directory with plenty of free storage, then change the directory into the AlphScore-main folder. Then set up the conda environment and make the tools executable:
 
 ```
 cd [folder where the repository was cloned/downloaded to]/AlphScore
@@ -31,7 +27,7 @@ chmod +x tools/dssp/mkdssp
 chmod +x tools/feature/feature-3.1.0/bin/featurize
 ```
 
-Note that DSSP, the FEATURE framework and protinter are practically not available via conda. Currently, these tools are uploaded to this repository to facilitate installing.
+Note that DSSP, the FEATURE framework and protinter are practically not available via conda. Currently, these tools in the tools folder of this repository to facilitate installing.
 
 ### Run feature extraction
 Feature extraction can be run using the follwoing commands:
