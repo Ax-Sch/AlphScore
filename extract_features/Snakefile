@@ -206,7 +206,7 @@ rule get_HSE:
 		df_HSE.to_csv(output[0], index=False)
 
 
-rule get_b_factors:
+rule get_pLDDT:
 	input:
 		pdb=pdb_dir+"{pdb_name}.pdb.gz"
 	output:
