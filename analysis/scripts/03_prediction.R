@@ -34,7 +34,7 @@ option_list = list(
               help="min child weight, xgboost"),
   make_option(c("-g", "--gamma_param"), type="integer", default=0, 
               help="gamma value, xgboost"),
-  make_option(c("-o", "--out_folder"), type="character", default="prediction", 
+  make_option(c("-o", "--out_folder"), type="character", default="data/prediction", 
               help="name of folder to store output"),
   make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
               help="Write predictions of test-dataset to file"),
@@ -59,9 +59,9 @@ if (opt$validation_set != ""){
   validation_set<-read_csv(opt$validation_set)
 }
 
-work_dir=paste0("data/", opt$out_folder)
-dir.create(work_dir)
-setwd(work_dir)
+
+dir.create(opt$out_folder, recursive=TRUE)
+setwd(opt$out_folder)
 pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
