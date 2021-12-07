@@ -1,0 +1,21 @@
+name: alphafold1
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-tidyverse
+  - biopython
+  - r-essentials
+  - r-data.table
+  - r-proc
+  - networkx
+  - numpy
+  - r-readxl
+  - pandas
+  - r-base
+  - snakemake
+  - biopandas
+  - r-r.utils
+  - tabix
+prefix: /home/axel/miniconda3/envs/alphafold1
