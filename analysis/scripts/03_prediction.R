@@ -36,9 +36,9 @@ option_list = list(
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="data/prediction", 
               help="name of folder to store output"),
-  make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
+  make_option(c("-w", "--write_dataset"), type="logical", default=TRUE, 
               help="Write predictions of test-dataset to file"),
-  make_option(c("-v", "--validation_set"), type="character", default="", 
+  make_option(c("-v", "--validation_set"), type="character", default="data/preprocess/validation_set.csv.gzpreprocessed.csv.gz", 
               help="validation set to calculate scores of"),
   make_option(c("-k", "--k_fold_cross_val"), type="logical", default=FALSE,
               help="activate k-fold cross validation of the training and test data set")
@@ -116,20 +116,16 @@ ranger_predict<-function(dataset, modelx){
   return(predict(modelx, dataset)$predictions) }
 
 extraT_fit<-function(xtrain_dataset){
-  options(java.parameters = "-Xmx8g")
-  library(extraTrees)
-  model1<-extraTrees(
-    x = as.matrix(xtrain_dataset %>% dplyr::select(-outcome)),
-    y = xtrain_dataset$outcome,
-    ntree = opt$num_trees_param,
-    nodesize = opt$min_node_param,
-    numThreads=7
+  model1<-ranger(outcome ~ ., 
+                 data=xtrain_dataset, 
+                 importance="impurity", 
+                 splitrule="extratrees",
+                 max.depth=opt$max_depth_param,
+                 num.trees = opt$num_trees_param,
+                 min.node.size = opt$min_node_param
   ) 
   return(model1)
 }
-extraT_predict<-function(dataset, modelx){
-  return(
-    predict(modelx, as.matrix(dataset %>% dplyr::select(all_of(colnames_new)) %>% dplyr::select(-outcome)))   )}
 
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
@@ -174,7 +170,7 @@ if (opt$method_pred=="xgboost"){
   predict_model<-ranger_predict
 }else {
   fit_model<-extraT_fit
-  predict_model<-extraT_predict
+  predict_model<-ranger_predict
 }
 
 
@@ -340,9 +336,9 @@ if (opt$validation_set != ""){
     validation_set[, sel_vars_to] - 
     validation_set[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
   
-  validation_set<-validation_set[complete.cases(validation_set[,c(colnames_new, "outcome", "CADD_raw")]), ]
+  validation_set<-validation_set[complete.cases(validation_set[,c(colnames_new)]), ]
   
-  validation_set$predicted<-predict_model(validation_set %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
+  validation_set$predicted_Alph<-predict_model(validation_set %>% dplyr::select(all_of(colnames_new[colnames_new!="outcome"])), gnomad_model_Alph)
   validation_set$predicted_glm<-predict(model_glm, validation_set)
   
   write_csv(x=validation_set, file=paste0(opt$prefix,"_validation_set.csv.gz"))
