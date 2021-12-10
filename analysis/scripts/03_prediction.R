@@ -116,6 +116,7 @@ ranger_predict<-function(dataset, modelx){
   return(predict(modelx, dataset)$predictions) }
 
 extraT_fit<-function(xtrain_dataset){
+  library(ranger)
   model1<-ranger(outcome ~ ., 
                  data=xtrain_dataset, 
                  importance="impurity", 
