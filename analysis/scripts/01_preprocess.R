@@ -6,7 +6,9 @@ set.seed(1)
 
 option_list = list(
   make_option(c("-i", "--input"), type="character", default="../extract_features/data/train_testset1/gnomad_extracted.csv.gz", 
-              help="csv.gz file")
+              help="csv.gz file"),
+  make_option(c("-o", "--output"), type="character", default="data/preprocess/gnomad_extracted_prepro.csv.gz", 
+              help="csv.gz file for output")
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
@@ -18,9 +20,8 @@ constraint_scores<-read_tsv("config/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz")
 cv_ids18<-read_tsv("config/clinvar_var_ids_2018.txt", col_names=c("id"), col_types=cols("id"= col_character())) 
 cv_ids21<-read_tsv("config/clinvar_var_ids_2021.txt", col_names=c("id"), col_types=cols("id"= col_character()))
 
-dir.create("data/preprocess")
-setwd("data/preprocess")
-
+dir.create(dirname(opt$output))
+setwd(dirname(opt$output))
 
 colnames(to_AS_table) <- paste(colnames(to_AS_table), "toAS", sep = "_")
 
@@ -88,5 +89,5 @@ venn.diagram(x=list(gnomad_no_cv21to18_temp, clinvar_no_cv21to18_no_gnomad_temp,
 colnames(variants)<-gsub("++","..",colnames(variants), fixed=TRUE)
 gc()
 
-write_csv(variants, file=paste0(basename(opt$input), "preprocessed.csv.gz"))
+write_csv(variants, file=basename(opt$output))
 

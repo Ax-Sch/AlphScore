@@ -4,14 +4,18 @@ set.seed(1)
 
 option_list = list(
   make_option(c("-i", "--input"), type="character", default="data/preprocess/gnomad_extracted_v2.csv.gzpreprocessed.csv.gz", 
-              help="csv.gz file")
+              help="csv.gz file"),
+  make_option(c("-o", "--output"), type="character", default="data/preprocess/gnomad_extracted_prepro.csv.gz", 
+              help="csv.gz file for output")
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
+base_file_name=tools::file_path_sans_ext(basename(opt$input))
 variants_org<-read_csv(opt$input)
 
-dir.create("data/recalibrate")
-setwd("data/recalibrate")
+dir.create(dirname(opt$output))
+setwd(dirname(opt$output))
+
 
 variants_org %>% group_by(from_AS) %>%
   summarize(mean_outcome=mean(outcome), anz=sum(outcome))%>%
@@ -50,47 +54,47 @@ new_variants %>%
   summarize(mean_outcome=mean(outcome))%>%
   arrange(mean_outcome)
 
-write_csv(new_variants, file="variants_preprocessed_recalibrated.csv.gz")
+write_csv(new_variants, file=basename(opt$output))
 
 
 #### trial strict:
 
-amino_acids<-unique(variants_org$from_AS)
-new_variants<-data.frame()
-for (amino_acid in amino_acids){
-  for (amino_acid_to in unique(variants_org[variants_org$from_AS==amino_acid,]$to_AS)){
-  temp_patho<-variants_org %>% 
-    filter(outcome==1, from_AS==amino_acid, to_AS==amino_acid_to)%>%
-    filter(gnomadSet==TRUE)
+#amino_acids<-unique(variants_org$from_AS)
+#new_variants<-data.frame()
+#for (amino_acid in amino_acids){
+#  for (amino_acid_to in unique(variants_org[variants_org$from_AS==amino_acid,]$to_AS)){
+#  temp_patho<-variants_org %>% 
+#    filter(outcome==1, from_AS==amino_acid, to_AS==amino_acid_to)%>%
+#    filter(gnomadSet==TRUE)
   
-  temp_benign<-variants_org %>% 
-    filter(outcome==0, from_AS==amino_acid, to_AS==amino_acid_to) %>%
-    filter(gnomadSet==TRUE)
+#  temp_benign<-variants_org %>% 
+#    filter(outcome==0, from_AS==amino_acid, to_AS==amino_acid_to) %>%
+#    filter(gnomadSet==TRUE)
   
-  non_training_variants<-variants_org%>%
-    filter(from_AS==amino_acid, to_AS==amino_acid_to) %>%
-    filter(gnomadSet==FALSE)
+#  non_training_variants<-variants_org%>%
+#    filter(from_AS==amino_acid, to_AS==amino_acid_to) %>%
+#    filter(gnomadSet==FALSE)
   
-  number_ben<-nrow(temp_benign)
-  number_patho<-nrow(temp_patho)
+#  number_ben<-nrow(temp_benign)
+#  number_patho<-nrow(temp_patho)
   
 
-  if (number_patho>number_ben){
-    new_temp_patho<-sample_n(temp_patho,number_ben, replace = FALSE)
-    new_temp_ben<-temp_benign
-  }else{
-    new_temp_patho<-temp_patho
-    new_temp_ben<-sample_n(temp_benign,number_patho, replace = FALSE)
-  }
-  new_variants<-rbind(new_variants, new_temp_ben, new_temp_patho, non_training_variants)
-}
-}
+#  if (number_patho>number_ben){
+#    new_temp_patho<-sample_n(temp_patho,number_ben, replace = FALSE)
+#    new_temp_ben<-temp_benign
+#  }else{
+#    new_temp_patho<-temp_patho
+#    new_temp_ben<-sample_n(temp_benign,number_patho, replace = FALSE)
+#  }
+#  new_variants<-rbind(new_variants, new_temp_ben, new_temp_patho, non_training_variants)
+#}
+#}
 
-new_variants %>%
-  filter(gnomadSet==1)%>%
-  group_by(from_AS) %>%
-  summarize(mean_outcome=mean(outcome))%>%
-  arrange(mean_outcome)
+#new_variants %>%
+#  filter(gnomadSet==1)%>%
+#  group_by(from_AS) %>%
+#  summarize(mean_outcome=mean(outcome))%>%
+#  arrange(mean_outcome)
 
-write_csv(new_variants, file="variants_preprocessed_recalibrated_strict.csv.gz")
+#write_csv(new_variants, file=opt$output)
 

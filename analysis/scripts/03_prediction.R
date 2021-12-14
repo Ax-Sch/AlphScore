@@ -8,7 +8,7 @@ set.seed(1)
 option_list = list(
   make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz", 
               help="csv.gz file"),
-  make_option(c("-e", "--excel_locataion"), type="character", default="config/available_colnames_W_surr.xlsx", 
+  make_option(c("-e", "--excel_location"), type="character", default="config/available_colnames_W_surr.xlsx", 
               help="Excel file listing columns to use"),
   make_option(c("-p", "--prefix"), type="character", default="base_model", 
               help="Prefix for output"),
@@ -36,10 +36,10 @@ option_list = list(
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="data/prediction", 
               help="name of folder to store output"),
-  make_option(c("-w", "--write_dataset"), type="logical", default=TRUE, 
+  make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
               help="Write predictions of test-dataset to file"),
-  make_option(c("-v", "--validation_set"), type="character", default="data/preprocess/validation_set.csv.gzpreprocessed.csv.gz", 
-              help="validation set to calculate scores of"),
+  make_option(c("-f", "--full_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
+              help="generate a full model"),
   make_option(c("-k", "--k_fold_cross_val"), type="logical", default=FALSE,
               help="activate k-fold cross validation of the training and test data set")
   
@@ -49,19 +49,14 @@ opt = parse_args(OptionParser(option_list=option_list))
 #DEBUG:
 #opt$csv_location="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz"
 
-
 save_tibble<-data.frame()
 
 variants<-read_csv(opt$csv_location, na=c(".","NA", NA))
-colnames_usage <- read_excel(opt$excel_locataion, col_types="text")
-
-if (opt$validation_set != ""){
-  validation_set<-read_csv(opt$validation_set)
-}
-
+colnames_usage <- read_excel(opt$excel_location, col_types="text")
 
 dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
+
 pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
@@ -79,27 +74,22 @@ variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
   variants[, sel_vars_to] - 
   variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
 
-
 colnames_prediction<-c(colnames(toAS_properties %>% dplyr::select(-from_AS_toAS)), 
                        (colnames_usage %>% filter(!is.na(for_prediction)))$value)
 
-train_dataset<-variants %>% 
-  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
-  mutate(mean_revel_global=mean(REVEL_score, na.rm=TRUE)) %>%
-  group_by(from_AS, to_AS, outcome)%>%
-  mutate(mean_revel=mean(REVEL_score, na.rm=TRUE))%>%
-  ungroup()%>%
+variants_pred<-variants %>% 
   dplyr::select(c(colnames_prediction, "outcome"))
 
 #https://machinelearningmastery.com/feature-selection-with-the-caret-r-package/
-zv <- apply(train_dataset, 2, function(x) length(unique(x)) == 1)
-dfr <- train_dataset[, !zv]
+zv <- apply(variants_pred, 2, function(x) length(unique(x)) == 1)
+dfr <- variants_pred[, !zv]
 n=length(colnames(dfr))
 correlationMatrix <- cor(dfr,use="complete.obs")
 
 cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
 colnames_new<-colnames(cols_removed)
-
+rm(variants_pred)
+gc()
 
 ranger_fit<-function(xtrain_dataset){
   library(ranger)
@@ -127,15 +117,19 @@ extraT_fit<-function(xtrain_dataset){
   ) 
   return(model1)
 }
+ranger_save<-function(modelx, filename){
+  saveRDS(modelx, file=filename)
+}
 
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
   set.seed(1)
-  n_ds<-nrow(xtrain_dataset)
-  train_i<-sample(1:n_ds,as.integer(n_ds*0.8))
-  train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[train_i] )
-  test_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[-train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[-train_i] )
-  watchlist=list(train=train_ds, test=test_ds)
+  train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome )
+  #n_ds<-nrow(xtrain_dataset)
+  #train_i<-sample(1:n_ds,as.integer(n_ds*0.8))
+  #train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[train_i] )
+  #test_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[-train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[-train_i] )
+  #watchlist=list(train=train_ds, test=test_ds)
   
   params <- list(max_depth = opt$max_depth_param, 
                  subsample=opt$subsample_param, 
@@ -146,7 +140,7 @@ xgboost_fit<-function(xtrain_dataset){
                  min_child_weight=opt$min_child_weight_param)
   model1<-xgb.train(
     data=train_ds,
-    watchlist = watchlist,
+    #watchlist = watchlist,
     params=params,
     nrounds = opt$num_trees_param,
     early_stopping_rounds = 10,
@@ -162,16 +156,22 @@ xgboost_predict<-function(dataset, modelx){
     predict(modelx, data_x) 
   )
 }
+xboost_save<-function(modelx, filename){
+  xgb.save(model=modelx, fname=filename)
+}
 
 if (opt$method_pred=="xgboost"){
   fit_model<-xgboost_fit
   predict_model<-xgboost_predict
+  save_model<-xgboost_save
 } else if (opt$method_pred=="randomforest") {
   fit_model<-ranger_fit
   predict_model<-ranger_predict
+  save_model<-ranger_save
 }else {
   fit_model<-extraT_fit
   predict_model<-ranger_predict
+  save_model<-ranger_save
 }
 
 
@@ -228,6 +228,8 @@ if (opt$k_fold_cross_val == TRUE){
                                 non_h_gnomad_train_nrow=nrow(non_h_gnomad_train),
                                 non_h_cv_test_nrow=nrow(non_h_cv_test),
                                 h_cv_test_nrow=nrow(h_cv_test),
+                                glm_alpha=non_h_cv_model_glm$coefficients[2],
+                                glm_CADD=non_h_cv_model_glm$coefficients[3],
                                 condition=opt$prefix, 
                                 params=I(list(opt))))
     
@@ -243,7 +245,26 @@ if (opt$k_fold_cross_val == TRUE){
                            col = "green", print.auc.y = .4, add = TRUE)
   }
   
+}else if (opt$full_model==TRUE){
+  var_full_model<-variants[,colnames_new] 
+  var_full_model<-var_full_model[complete.cases(var_full_model),]
+  gnomad_model_Alph<-fit_model(var_full_model)
+  var_full_model$predicted_Alph<-predict_model(var_full_model, gnomad_model_Alph)
+  
+  save_tibble <- tibble(auc_Alph_train_gnomAD=roc(var_full_model$outcome, var_full_model$predicted_Alph)$auc,
+                          Alph_OOB=ifelse((opt$method_pred %in% c("randomforest","extratree")), gnomad_model_Alph$prediction.error, NA),
+                          gnomad_train_nrow=nrow(var_full_model))
+  write.csv2(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
+  
+  save_model(gnomad_model_Alph, file=paste0(opt$prefix,"_written_full_model.RData"))
+  saveRDS(colnames_new, file=paste0(opt$prefix,"_colnames_to_use.RData"))
+  saveRDS(toAS_properties,file=paste0(opt$prefix,"_toAS_properties.RData") )
 }else{
+  
+  train_dataset<-variants %>% 
+    filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
+    dplyr::select(c(colnames_prediction, "outcome"))
+  
   train_dataset<-train_dataset[,colnames_new] 
   train_dataset<-train_dataset[complete.cases(train_dataset),]
   
@@ -252,9 +273,6 @@ if (opt$k_fold_cross_val == TRUE){
   interim_dataset<-interim_dataset[complete.cases(interim_dataset[,c(colnames_new, "outcome", "CADD_raw")]), ]
   
   gnomad_model_Alph<-fit_model(train_dataset %>% dplyr::select(all_of(colnames_new)))
-  
-  ## OOB error:
-  #gnomad_model_Alph$prediction.error
   
   train_dataset$predicted_Alph<-predict_model(train_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
   roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "red")
@@ -297,6 +315,8 @@ if (opt$k_fold_cross_val == TRUE){
                               gnomad_train_nrow=nrow(train_dataset),
                               interim_nrow=nrow(interim_dataset),
                               test_nrow=nrow(test_dataset),
+                              glm_alpha=model_glm$coefficients[2],
+                              glm_CADD=model_glm$coefficients[3],
                               condition=opt$prefix, 
                               params=I(list(opt))))
   
@@ -312,7 +332,7 @@ if (opt$k_fold_cross_val == TRUE){
 }
 
 
-if (opt$method_pred=="randomforest"){
+if (opt$method_pred %in% c("randomforest", "extratree")){
   ##### CHECK properties of models
   var_imp<-tibble(importance=as.vector(gnomad_model_Alph$variable.importance), variable=names(gnomad_model_Alph$variable.importance))
   
@@ -325,23 +345,5 @@ if (opt$method_pred=="randomforest"){
     scale_fill_gradient(low="red", high="blue")
   
   ggsave(filename=paste0(opt$prefix,"_importance.pdf"), plot=var_importance, height=49)
-}
-
-
-
-if (opt$validation_set != ""){
-  validation_set<-validation_set%>%
-    left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))
-  
-  validation_set[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]<-
-    validation_set[, sel_vars_to] - 
-    validation_set[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
-  
-  validation_set<-validation_set[complete.cases(validation_set[,c(colnames_new)]), ]
-  
-  validation_set$predicted_Alph<-predict_model(validation_set %>% dplyr::select(all_of(colnames_new[colnames_new!="outcome"])), gnomad_model_Alph)
-  validation_set$predicted_glm<-predict(model_glm, validation_set)
-  
-  write_csv(x=validation_set, file=paste0(opt$prefix,"_validation_set.csv.gz"))
 }
 
