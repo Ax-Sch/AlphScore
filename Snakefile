@@ -34,7 +34,7 @@ rule download_dbNSFP_AlphaFold_files:
 		expand(config["pdb_dir"]+"{pdb_name}.pdb.gz", pdb_name=relevant_alphafold_models)
 	params:
 		dbNSFP="data/dbNSFP_raw",
-		alphafold="data/pdb_files"
+		alphafold="data/pdb_files",
 		partition=config["long_partition"]
 	resources: time_job=4800, mem_mb=8000
 	shell:
@@ -69,7 +69,9 @@ rule split_dbNSFP:
 		"data/split_dbNSFP/chr{chr}_ok"
 	params:
 		tmp="data/split_dbNSFP/tmp/chr{chr}/",
-		outdir="data/split_dbNSFP/by_uniprotID/"
+		outdir="data/split_dbNSFP/by_uniprotID/",
+		partition=config["short_partition"]
+	resources: time_job=480, mem_mb=8000
 	shell:
 		"""
 		homedir=$(pwd)
@@ -252,7 +254,7 @@ rule combine_pdb_level_files:
 	params:
 		"data/split_dbNSFP/by_uniprotID/",
 		partition=config["short_partition"]
-	resources: time_job=480, mem_mb=64000
+	resources: time_job=240, mem_mb=4000
 	run:
 		import pandas as pd
 		import os
@@ -372,6 +374,22 @@ rule write_final_model:
 #		--gamma_param 0 \
 #		--k_fold_cross_val TRUE
 
+#		Rscript scripts/prediction.R \
+#		--prefix pre_final_model \
+#		--excel_location resources/available_colnames_W_surr.xlsx \
+#		--method_pred extratree \
+#		--num_trees_param 2000 \
+#		--max_depth_param 6 \
+#		--min_node_param 10 \
+#		--cor_param 0.999999 \
+#		--b_factor_param 60 \
+#		--eta_param 0 \
+#		--subsample_param 0 \
+#		--min_child_weight_param 0 \
+#		--gamma_param 0 \
+#		--write_model TRUE \
+#		--write_dataset TRUE
+
 		Rscript scripts/prediction.R \
 		--prefix final \
 		--excel_location resources/available_colnames_W_surr.xlsx \
@@ -385,7 +403,8 @@ rule write_final_model:
 		--subsample_param 0 \
 		--min_child_weight_param 0 \
 		--gamma_param 0 \
-		--full_model TRUE
+		--full_model TRUE \
+		--write_model TRUE
 		"""
 
 

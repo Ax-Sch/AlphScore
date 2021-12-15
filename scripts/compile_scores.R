@@ -89,12 +89,12 @@ str_replace_all(RESN_RESI, c(
  "HIS"="H", "ILE"="I", "LEU"="L", "LYS"="K",
  "MET"="M", "PHE"="F", "PRO"="P", "SER"="S",
  "THR"="T", "TRP"="W", "TYR"="Y", "VAL"="V")),
-str_replace_all(to_AS, c(
-  "Ala"="A", "Arg"="R", "Asn"="N", "Asp"="D",
-  "Cys"="C", "Glu"="E", "Gln"="Q", "Gly"="G",
-  "His"="H", "Ile"="I", "Leu"="L", "Lys"="K",
-  "Met"="M", "Phe"="F", "Pro"="P", "Ser"="S",
-  "Thr"="T", "Trp"="W", "Tyr"="Y", "Val"="V"))
+str_replace_all(to_AS, c( 
+  "ALA"="A", "ARG"="R", "ASN"="N", "ASP"="D",
+  "CYS"="C", "GLU"="E", "GLN"="Q", "GLY"="G",
+  "HIS"="H", "ILE"="I", "LEU"="L", "LYS"="K",
+  "MET"="M", "PHE"="F", "PRO"="P", "SER"="S",
+  "THR"="T", "TRP"="W", "TYR"="Y", "VAL"="V"))
 ))
 
 values_joined<-values_joined %>% 

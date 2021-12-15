@@ -14,7 +14,7 @@ option_list = list(
               help="Prefix for output"),
   make_option(c("-m", "--method_pred"), type="character", default="randomforest", 
               help="Prediction method [randomforest, xgboost, extratree]"),
-  make_option(c("-n", "--num_trees_param"), type="integer", default=2000, 
+  make_option(c("-n", "--num_trees_param"), type="integer", default=200, 
               help="Number of trees to use / or number of rounds"),
   make_option(c("-x", "--max_depth_param"), type="integer", default=6, 
               help="Maximal depth of trees"),
@@ -36,10 +36,12 @@ option_list = list(
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="data/prediction", 
               help="name of folder to store output"),
-  make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
+  make_option(c("-w", "--write_dataset"), type="logical", default=TRUE, 
               help="Write predictions of test-dataset to file"),
   make_option(c("-f", "--full_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
               help="generate a full model"),
+  make_option(c("-y", "--write_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
+              help="write the model parameters to a file"),
   make_option(c("-k", "--k_fold_cross_val"), type="logical", default=FALSE,
               help="activate k-fold cross validation of the training and test data set")
   
@@ -254,11 +256,7 @@ if (opt$k_fold_cross_val == TRUE){
   save_tibble <- tibble(auc_Alph_train_gnomAD=roc(var_full_model$outcome, var_full_model$predicted_Alph)$auc,
                           Alph_OOB=ifelse((opt$method_pred %in% c("randomforest","extratree")), gnomad_model_Alph$prediction.error, NA),
                           gnomad_train_nrow=nrow(var_full_model))
-  write.csv2(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
-  
-  save_model(gnomad_model_Alph, file=paste0(opt$prefix,"_written_full_model.RData"))
-  saveRDS(colnames_new, file=paste0(opt$prefix,"_colnames_to_use.RData"))
-  saveRDS(toAS_properties,file=paste0(opt$prefix,"_toAS_properties.RData") )
+
 }else{
   
   train_dataset<-variants %>% 
@@ -284,25 +282,50 @@ if (opt$k_fold_cross_val == TRUE){
                    col = "green", print.auc.y = .4, add = TRUE)
   
   
-  model_glm <- glm(outcome ~ . , family=binomial(link='logit'),
+  model_glm_AC <- glm(outcome ~ . , family=binomial(link='logit'),
                 data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
                   filter(complete.cases(.)))
+  
+  model_glm_AR <- glm(outcome ~ . , family=binomial(link='logit'),
+                   data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, REVEL_score) %>%
+                     filter(complete.cases(.)))
+  
+  model_glm_RC <- glm(outcome ~ . , family=binomial(link='logit'),
+                   data=interim_dataset %>% dplyr::select(outcome, CADD_raw, REVEL_score) %>%
+                     filter(complete.cases(.)))
+  model_glm_ARC <- glm(outcome ~ . , family=binomial(link='logit'),
+                      data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw, REVEL_score) %>%
+                        filter(complete.cases(.)))
   
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test==TRUE)
   
   test_dataset<-test_dataset[complete.cases(test_dataset[,c(colnames_new, "outcome")]), ]
   test_dataset$predicted_Alph<-predict_model(test_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
-  test_dataset$predicted_scaled<-scale(test_dataset$predicted_Alph)
+  #test_dataset$predicted_scaled<-scale(test_dataset$predicted_Alph)
   
-  test_dataset$predicted_glm<-predict(model_glm, test_dataset)
-  
+  test_dataset$predicted_glm_AC<-predict(model_glm_AC, test_dataset)
+  test_dataset$predicted_glm_AR<-predict(model_glm_AR, test_dataset)
+  test_dataset$predicted_glm_RC<-predict(model_glm_RC, test_dataset)
+  test_dataset$predicted_glm_ARC<-predict(model_glm_ARC, test_dataset)
+
   
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$CADD_raw), print.auc = TRUE, col = "red")
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm), print.auc = TRUE, 
-                   col = "blue", print.auc.y = .2, add = TRUE)
+  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AC), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .6, add = TRUE)
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
                    col = "green", print.auc.y = .4, add = TRUE)
+  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AR), print.auc = TRUE, 
+                   col = "darkgreen", print.auc.y = .3, add = TRUE)
+  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_RC), print.auc = TRUE, 
+                   col = "brown", print.auc.y = .2, add = TRUE)
+  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_ARC), print.auc = TRUE, 
+                   col = "grey", print.auc.y = .1, add = TRUE)
+  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$REVEL_score), print.auc = TRUE, 
+                   col = "black", print.auc.y = 0.0, add = TRUE)
+  legend(0.3, 0.3, legend=c("CADD", "Alph + CADD", "Alph", "Alph + REVEL", "CADD + REVEL", "Alph + CADD + REVEL",
+                        "REVEL"),
+         col=c("red", "blue", "green", "darkgreen","brown", "grey", "black"), lty=1, cex=0.8)
   
   save_tibble <- rbind(save_tibble, 
                        tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
@@ -311,16 +334,20 @@ if (opt$k_fold_cross_val == TRUE){
                               auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
                               auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc, 
                               auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
-                              auc_glm_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm)$auc, 
+                              auc_glm_AC_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_AC)$auc, 
+                              auc_glm_AR_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_AR)$auc, 
+                              auc_glm_RC_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_RC)$auc, 
                               gnomad_train_nrow=nrow(train_dataset),
                               interim_nrow=nrow(interim_dataset),
                               test_nrow=nrow(test_dataset),
-                              glm_alpha=model_glm$coefficients[2],
-                              glm_CADD=model_glm$coefficients[3],
+                              glm_alpha_AC=model_glm_AC$coefficients[2],
+                              glm_CADD_AC=model_glm_AC$coefficients[3],
+                              glm_alpha_AR=model_glm_AR$coefficients[2],
+                              glm_REVEL_AR=model_glm_AR$coefficients[3],
+                              glm_CADD_CR=model_glm_RC$coefficients[2],
+                              glm_REVEL_CR=model_glm_RC$coefficients[3],
                               condition=opt$prefix, 
                               params=I(list(opt))))
-  
-  write.csv2(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
   
   ggplot(test_dataset)+
     geom_point(aes(x=predicted_Alph, y=CADD_raw), alpha=0.3)+
@@ -347,3 +374,10 @@ if (opt$method_pred %in% c("randomforest", "extratree")){
   ggsave(filename=paste0(opt$prefix,"_importance.pdf"), plot=var_importance, height=49)
 }
 
+if (opt$write_model){
+  save_model(gnomad_model_Alph, file=paste0(opt$prefix,"_written_full_model.RData"))
+  saveRDS(colnames_new, file=paste0(opt$prefix,"_colnames_to_use.RData"))
+  saveRDS(toAS_properties,file=paste0(opt$prefix,"_toAS_properties.RData") )
+}
+
+write_tsv(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
