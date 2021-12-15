@@ -1,0 +1,53 @@
+FeatureScripts
+--------------
+(See README.html from the Feature package for instructions for Feature itself.)
+
+Usage
+-----
+Create .site file for FEATURE
+Run 'train_model.py' in directory where Model/ will be created
+Run 'scan_model.py' in directory where Scan-scanname/ will be created
+
+
+Example
+-------
+# If working directory is FeatureRuns/EFHand/
+# If efhand.site is stored in that directory
+
+# Go to working directory
+% cd FeatureRuns/EFHand
+
+# Create Model using the training set 'efhand.site' 
+#   with 6 shells of thickness 1 angstrom
+% train_model.py --sitefile efhand.site --numshells 6 --shellthickness 1
+
+# Scan the proteins in efhand.site using gridsize of 1 angstroms 
+#   and excluding the residues calcium, zinc, and magnesium.
+#   Use the model specified in Model/training.ini to perform the scan.
+% scan_model.py --proteinfile efhand.site --gridsize 1 --excludedresidues "CA ZN MG" Model/training.ini
+
+
+Optional Environment Variable Setup
+-----------------------------------
+PATH (Recommended)
+    Add directory where FEATURE scripts are installed
+    Add directory where FEATURE binaries are located
+FEATURE_PATH (overrides PATH)
+    Set to directory where FEATURE binaries are located
+FEATURE_PARAMETER_FILE
+    Set to default parameter file to always include when running FEATURE scripts
+LOCAL_PDB_DIR (Recommended)
+    Set to directory where local cache of PDB files are stored
+LOCAL_DSSP_DIR (Recommended)
+    Set to directory where local cache of DSSP files are stored
+PROTEIN_PDB_DIR
+    Set to directory where global cache of PDB files are stored
+PROTEIN_DSSP_DIR
+    Set to directory where global cache of DSSP files are stored
+
+
+Example Environment Setup
+-------------------------
+setenv PATH $PATH:/home/username/projects/FeatureScripts:/home/username/projects/Feature
+setenv LOCAL_PDB_DIR /home/username/databases/pdb
+setenv LOCAL_DSSP_DIR /home/username/databases/dssp

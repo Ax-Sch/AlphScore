@@ -1,0 +1,65 @@
+Basic Installation
+==================
+
+    For more information specific to this package, please read the README
+file. This source code distribution is autoconfiguring and you should be 
+able to compile it and install it without manual interventions such as 
+editing Makefiles, configuration files, and so on. These are generic 
+instructions for people who are not familiar with installing autoconfiguring
+software.
+   
+The simplest way to compile this package is to enter the source code
+main directory and do the following:
+
+  1. Configure the source code by typing:
+        % sh ./configure
+
+     If you're planning to install the package into your home directory
+     or to a location other than `/usr/local' then add the flag
+     `--prefix=PATH' to `configure'. For example, if your home directory  
+     is `/home/luser' you can configure the package to install itself there
+     by invoking:
+        % sh ./configure --prefix=/home/luser
+     
+     While running, `configure' prints some messages telling which
+     features is it checking for. 
+
+  2. Type `make' to compile the package.
+
+  3. Optionally, type `make check' to run any self-tests that come with
+     the package.
+
+  4. Type `make install' to install the programs and any data files and
+     documentation. Type `make uninstall' to undo the installation.
+
+     During installation, the executable files will be copied to 
+     '/prefix/feature' where 'prefix' is either '/usr/local' or the PATH
+     that you specified in the '--prefix' flag.
+
+     If the directory does not presently exist, it will be created.
+
+     Make sure the directory you are installing to is in your path.
+     If you are installing to '/usr/local/feature' and are using the bash 
+     shell add this line at the end of your .cshrc file:
+        PATH="/usr/local/feature:${PATH}"
+        export PATH
+     If you are using csh or tcsh, then use this line instead:
+        setenv PATH /usr/local/feature:${PATH}
+
+  5. You can remove the program binaries and object files from the
+     source code directory by typing `make clean'.  To also remove the
+     files that `configure' created (so you can compile the package for
+     a different kind of computer), type `make distclean'.
+
+Compilers and Options
+=====================
+
+   Some systems require unusual options for compilation or linking that
+the `configure' script does not know about.  You can give `configure'
+initial values for variables by setting them in the environment.  Using
+a Bourne-compatible shell, you can do that on the command line like
+this:
+     CC=c89 CFLAGS=-O2 LIBS=-lposix ./configure
+
+Or on systems that have the `env' program, you can do it like this:
+     env CPPFLAGS=-I/usr/local/include LDFLAGS=-s ./configure

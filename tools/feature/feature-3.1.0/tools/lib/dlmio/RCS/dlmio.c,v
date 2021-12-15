@@ -1,0 +1,338 @@
+head	1.3;
+access;
+symbols;
+locks
+	mliang:1.3; strict;
+comment	@ * @;
+
+
+1.3
+date	2004.04.27.18.25.12;	author mliang;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2004.04.27.18.19.12;	author mliang;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2004.04.27.17.47.36;	author mliang;	state Exp;
+branches;
+next	;
+
+
+desc
+@Delimited file reading
+@
+
+
+1.3
+log
+@Added help documentation
+@
+text
+@// $Id: dlmio.c,v 1.2 2004/04/27 18:19:12 mliang Exp mliang $
+// Copyright (c) 2004 Mike Liang. All rights reserved.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#undef DEBUG
+
+#define BUF_SIZE 65536
+
+double *dlmreadf(FILE *file,double **_values,int *_numrows,int *_numcols,char *delim,int skiprows,int skipcols) {
+    long startpos;
+    char buf[BUF_SIZE];
+    char *token;
+    double value;
+    double *values;
+    double *cursor;
+    int numrows=0,numcols=0;
+    int row=0,col=0;
+    int skiprowidx, skipcolidx;
+
+
+    /* count size */
+    startpos = ftell(file);
+    numrows = 0;
+    // skip rows
+    for (skiprowidx = 0; skiprowidx < skiprows; skiprowidx++) {
+        if (fgets(buf,BUF_SIZE,file) == NULL) {
+            break;
+        }
+    }
+    // count cols
+    if (fgets(buf,BUF_SIZE,file) != NULL) {
+        numcols = 0;
+        skipcolidx = 0;
+        token = buf;
+        do {
+            // skip colS
+            if (skipcolidx < skipcols) {
+                skipcolidx++;
+            } else {
+                numcols++;
+            }
+            token = strstr(token+1,delim);
+        } while (token);
+        numrows++;
+    }
+    // count rows
+    while (fgets(buf,BUF_SIZE,file) != NULL) {
+        numrows++;
+    }
+
+#ifdef DEBUG
+    fprintf(stderr,"Rows:%d Cols:%d\n",numrows,numcols);
+#endif
+    values = (double *)malloc(numrows*numcols*sizeof(double));
+    if (!values) {
+        fprintf(stderr,"Error allocating memory\n");
+        return NULL;
+    }
+
+    /* read values */
+    fseek(file,startpos,SEEK_SET);
+    cursor = values;
+    row = 0;
+    for (skiprowidx = 0; skiprowidx < skiprows; skiprowidx++) {
+        if (fgets(buf,BUF_SIZE,file) == NULL) {
+            break;
+        }
+    }
+    while (fgets(buf,BUF_SIZE,file) != NULL) {
+        col = 0;
+        skipcolidx = 0;
+        token = buf;
+        do {
+            if (skipcolidx < skipcols) {
+                skipcolidx++;
+            } else {
+                value = atof(token);
+                *cursor++ = value;
+                col++;
+            }
+            token = strstr(token+1,delim);
+        } while (token);
+        if (col != numcols) {
+            fprintf(stderr,"Cols don't match %d != %d\n",col,numcols);
+        }
+        row++;
+    }
+    if (row != numrows) {
+        fprintf(stderr,"Rows don't match %d != %d\n",row,numrows);
+    }
+
+    *_values = values;
+    *_numrows = numrows;
+    *_numcols = numcols;
+    return values;
+}
+
+double *dlmread(char *filename,double **_values,int *_numrows,int *_numcols,char *delim,int skiprows,int skipcols) {
+    double *retval;
+    FILE *file;
+    file = fopen(filename,"r");
+    if (!file) {
+        fprintf(stderr,"Error opening file %s\n",filename);
+        return NULL;
+    }
+    retval = dlmreadf(file,_values,_numrows,_numcols,delim,skiprows,skipcols);
+    fclose(file);
+    return retval;
+}
+
+// ===================================================================
+// PYTHON BINDING
+// ===================================================================
+
+#include "Python.h"
+#include "Numeric/arrayobject.h"
+
+static PyObject *
+dlmio_dlmread(PyObject *self, PyObject *args, PyObject *kwargs) {
+    static char *kwlist[] = {"fileobj","delim","row","col",NULL};
+    PyObject *fileobj;
+    FILE *file;
+    char *filename;
+    char *delim = "\t";
+    double *values;
+    PyArrayObject *array;
+    int dims[2]; /* { rows, cols } */
+    int skiprows=0;
+    int skipcols=0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|sii:dlmread", kwlist,
+        &fileobj, &delim, &skiprows, &skipcols))
+        return NULL;
+    
+    if (PyString_Check(fileobj)) {
+        filename = PyString_AsString(fileobj);
+        if (dlmread(filename,&values,&dims[0],&dims[1],delim,skiprows,skipcols) == NULL) {
+            PyErr_SetFromErrno(PyExc_IOError);
+            return NULL;
+        }
+    } else if (PyFile_Check(fileobj)) {
+        file = PyFile_AsFile(fileobj);
+        if (dlmreadf(file,&values,&dims[0],&dims[1],delim,skiprows,skipcols) == NULL) {
+            PyErr_SetFromErrno(PyExc_IOError);
+            return NULL;
+        }
+    } else {
+        PyErr_SetString(PyExc_ValueError,"invalid file type");
+        return NULL;
+    }
+
+#ifdef DEBUG
+    fprintf(stderr,"Creating PyArray\n");
+#endif
+    array = (PyArrayObject *)PyArray_FromDims(2,dims,PyArray_DOUBLE);
+    memcpy(array->data,values,dims[0]*dims[1]*sizeof(double));
+    free(values);
+    
+    return PyArray_Return(array);
+}
+
+static PyMethodDef dlmioMethods[] = {
+    {"dlmread", (PyCFunction)dlmio_dlmread, METH_VARARGS|METH_KEYWORDS, 
+     "Delimited read\n"
+     "\n"
+     "dlmread(filename,delim='\\t',row=0,col=0)\n"
+     "\n"
+     "    filename - string or file object\n"
+     "    delim - field delimiter\n"
+     "    row - number of rows to skip\n"
+     "    col - number of columns to skip\n"},
+    {NULL,NULL,0,NULL} /* Sentinel */
+};
+
+PyMODINIT_FUNC
+initdlmio(void) {
+    (void) Py_InitModule("dlmio", dlmioMethods);
+    import_array();
+}
+@
+
+
+1.2
+log
+@Removed SET_NAN and USE_MULTI_DELIM
+Added DEBUG
+Added optional parameters for skipping rows or cols
+@
+text
+@d1 1
+a1 1
+// $Id: dlmio.c,v 1.1 2004/04/27 17:47:36 mliang Exp mliang $
+d168 8
+a175 1
+     "Delimited read"},
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 1
+// $Id$
+d9 1
+a9 2
+#undef USE_MULTI_DELIM
+#define SET_NAN
+d13 1
+a13 1
+double *dlmreadf(FILE *file,double **_values,int *_numrows,int *_numcols,char *delim) {
+d22 1
+a22 4
+#ifdef SET_NAN
+    static double NaN = 0;
+    if (NaN == 0) NaN = atof("NaN");
+#endif
+d28 7
+d37 1
+a37 5
+#ifdef USE_MULTI_DELIM
+        for (token = strtok(buf,delim); token; token = strtok(NULL,delim)) {
+            numcols++;
+        }
+#else
+d40 6
+a45 1
+            numcols++;
+a47 1
+#endif
+d50 1
+d55 3
+a57 1
+    //fprintf(stderr,"Rows:%d Cols:%d\n",numrows,numcols);
+d68 5
+d75 1
+a75 14
+#ifdef USE_MULTI_DELIM
+        for (token = strtok(buf,delim); token; token = strtok(NULL,delim)) {
+#ifdef SET_NAN
+            errno = 0;
+            value = atof(token);
+            if (errno != 0)
+                value = NaN;
+#else
+            value = atof(token);
+#endif
+            *cursor++ = value;
+            col++;
+        }
+#else
+d78 7
+a84 10
+#ifdef SET_NAN
+            errno = 0;
+            value = atof(token);
+            if (errno != 0)
+                value = NaN;
+#else
+            value = atof(token);
+#endif
+            *cursor++ = value;
+            col++;
+a86 1
+#endif
+d102 1
+a102 1
+double *dlmread(char *filename,double **_values,int *_numrows,int *_numcols,char *delim) {
+d110 1
+a110 1
+    retval = dlmreadf(file,_values,_numrows,_numcols,delim);
+a114 9
+int main(int argc, char**argv) {
+    char *filename = "astral_uniq.0.csv";
+    char *delim=",";
+    double *values;
+    int numrows,numcols;
+    dlmread(filename,&values,&numrows,&numcols,delim);
+    return 0;
+}
+
+d132 2
+a133 2
+    int skiprow=0;
+    int skipcol=0;
+d136 1
+a136 1
+        &fileobj, &delim, &skiprow, &skipcol))
+d141 1
+a141 1
+        if (dlmread(filename,&values,&dims[0],&dims[1],delim) == NULL) {
+d147 1
+a147 1
+        if (dlmreadf(file,&values,&dims[0],&dims[1],delim) == NULL) {
+d156 3
+a158 1
+    //fprintf(stderr,"Creating PyArray\n");
+@

@@ -5,6 +5,13 @@ channels:
   - defaults
 dependencies:
   - r-tidyverse
+  - r-ranger
+  - r-xgboost
+  - r-venndiagram
+  - r-optparse
+  - r-proc
+  - r-readxl
+  - r-caret
   - biopython
   - r-essentials
   - r-data.table
@@ -18,4 +25,3 @@ dependencies:
   - biopandas
   - r-r.utils
   - tabix
-prefix: /home/axel/miniconda3/envs/alphafold1

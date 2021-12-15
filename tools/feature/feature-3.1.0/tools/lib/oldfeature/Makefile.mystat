@@ -1,0 +1,18 @@
+CFLAGS=-O2 -Wall
+CC=gcc
+PYINCLUDE=/home/jchang/include/python2.2
+
+all: mystatmodule.so
+
+mystatmodule.so: mystatmodule.o normal_cdf.o
+	ld -G mystatmodule.o normal_cdf.o -o mystatmodule.so
+
+mystatmodule.o:
+	${CC} -c ${CFLAGS} -I${PYINCLUDE} mystatmodule.c
+
+normal_cdf.o: normal_cdf.c
+	${CC} -c ${CFLAGS} normal_cdf.c
+
+clean:
+	@rm -f *~
+	@rm -f *.o
