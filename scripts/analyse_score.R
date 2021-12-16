@@ -12,9 +12,21 @@ option_list = list(
   make_option(c("-o", "--out_folder"), type="character", default="data/analyse_score", 
               help="Output folder"))
 
+
+
 opt = parse_args(OptionParser(option_list=option_list))
 
 test_dataset2<-read_csv(opt$test_dataset)
+
+#constraint_scores<-read_tsv("resources/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz")
+#unip_ids<-tibble(uniprot=unlist(strsplit(variants$Uniprot_acc,";")), 
+#                 ensg=unlist(strsplit(variants$Ensembl_geneid,";"))) %>% distinct()
+#constraint_scores<-unip_ids %>% left_join(constraint_scores, by=c("ensg"="gene_id"))%>%
+#  dplyr::select(uniprot, ensg, gene, oe_lof_upper, pLI)
+#variants<-variants%>% 
+#  left_join(constraint_scores, by=c("Uniprot_acc_split"="uniprot"))%>%
+#  mutate(pLI05=as.integer(pLI>0.5))
+
 validation_dataset<-read_csv(opt$validation_set)
 
 dir.create(opt$out_folder, recursive=TRUE)
