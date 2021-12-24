@@ -6,14 +6,14 @@ library(optparse)
 set.seed(1)
 
 option_list = list(
-  make_option(c("-i", "--input"), type="character", default="data/train_testset1/gnomad_extracted.csv.gz", 
+  make_option(c("-i", "--input"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/gnomad_extracted_v2.csv.gz", 
               help="csv.gz file"),
   make_option(c("-o", "--output"), type="character", default="data/train_testset1/gnomad_extracted_prepro.csv.gz", 
               help="csv.gz file for output")
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
-variants<-fread(opt$input, header=TRUE)
+variants<-read_csv(opt$input)
 
 to_AS_table<-read_tsv("resources/to_AS_table.txt")
 cv_ids18<-read_tsv("resources/clinvar_var_ids_2018.txt", col_names=c("id"), col_types=cols("id"= col_character())) 
@@ -38,58 +38,63 @@ double_variants<-variants %>% filter(var_id_genomic %in% double_ids) %>% select(
 head(double_variants)
 # duplicates are different alternative alleles at one position
 
-cv_temp<-(variants %>% filter(gnomadSet==0))$var_id_genomic
-gn_temp<-(variants %>% filter(gnomadSet==1))$var_id_genomic
-venn.diagram(x=list(cv_temp, gn_temp),category.names = c("ClinVar" , "gnomAD"), filename = 'ClinVar_vs_gnomAD_all.png')
-
-cv_21prot<-cv_ids21 %>% 
+cv21s<-cv_ids21 %>% 
   left_join(variants, by=c("id"="var_id_genomic")) %>% 
   dplyr::select(var_id_prot, id, Uniprot_acc_split) %>% 
   filter(!is.na(Uniprot_acc_split))
-cv_21uniprot_ids<-(cv_21prot$Uniprot_acc_split)
-cv_21var_ids<-(cv_21prot$id)
-cv_18prot<-cv_ids18 %>% 
+
+cv18s<-cv_ids18 %>% 
   left_join(variants, by=c("id"="var_id_genomic")) %>% 
   dplyr::select(var_id_prot, id, Uniprot_acc_split) %>% 
   filter(!is.na(Uniprot_acc_split))
-cv_18uniprot_ids<-(cv_18prot$Uniprot_acc_split)
-cv_18var_ids<-(cv_18prot$id)
-venn.diagram(x=list(cv_18uniprot_ids, cv_21uniprot_ids),category.names = c("ClinVar2018\nproteins" , "ClinVar2021\nproteins"), filename = 'ClinVar_2018_2021_proteins.png')
-venn.diagram(x=list(cv_18var_ids, cv_21var_ids),category.names = c("ClinVar2018\nvariants" , "ClinVar2021\nvariants"), filename = 'ClinVar_2018_2021_variants.png')
+
+cv_21s_not_18s<-cv21s[ ((!cv21s$Uniprot_acc_split %in% cv18s$Uniprot_acc_split) & (!cv21s$id %in% cv18s$id) & (!cv21s$var_id_prot %in% cv18s$var_id_prot)),]
+
+venn.diagram(x=list(cv18s$Uniprot_acc_split, cv21s$Uniprot_acc_split, cv_21s_not_18s$Uniprot_acc_split),category.names = c("ClinVar2018\nproteins" , "ClinVar2021\nproteins", "ClinVar2021\nnot 2018\nproteins"), filename = 'ClinVar_2018_2021_proteins.png')
+venn.diagram(x=list(cv18s$var_id_prot, cv21s$var_id_prot, cv_21s_not_18s$var_id_prot),category.names = c("ClinVar2018\nvariants" , "ClinVar2021\nvariants", "ClinVar2021\nnot 2018\nvariants"), filename = 'ClinVar_2018_2021_variants.png')
+venn.diagram(x=list(cv18s$id, cv21s$id,cv_21s_not_18s$id, gn_temp),category.names = c("ClinVar2018" , "ClinVar2021","ClinVar2021\nnot 2018", "gnomAD"), filename = 'ClinVar2018vs2021_variants_vs_gnomad.png')
+
+variants$cv21_gene<-(variants$Uniprot_acc_split %in% cv21s$Uniprot_acc_split)
+variants$pure_cv18_gene<-(variants$Uniprot_acc_split %in% cv18s$Uniprot_acc_split)
+variants$pure_cv18_to_21_gene<-(variants$cv21_gene & (!variants$pure_cv18_gene))
+
+gnomad_variants<-(variants %>% filter(gnomadSet==0))
 
 
-genes_CV_new<-cv_21prot[ ((!cv_21uniprot_ids %in% cv_18uniprot_ids) & (!cv_21var_ids %in% cv_18var_ids)),]
-genes_CV_old<-cv_21prot[!cv_21uniprot_ids %in% genes_CV_new$Uniprot_acc_split,]
-genes_CV_total<-rbind(genes_CV_new, genes_CV_old)
+#variants$gnomad_no_cv21to18<-!variants$pure_cv18_to_21_gene
+variants$clinvar_no_cv21to18_no_gnomad<-!variants$pure_cv18_to_21_gene & 
+  !(variants$var_id_genomic %in% gnomad_variants$var_id_genomic)&
+  !(variants$var_id_prot %in% gnomad_variants$var_id_prot)
 
-venn.diagram(x=list(cv_18prot$id, cv_21prot$id, gn_temp),category.names = c("ClinVar2018" , "ClinVar2021", "gnomAD"), filename = 'ClinVar2018vs2021_variants.png')
-venn.diagram(x=list(cv_18prot$Uniprot_acc_split, cv_21prot$Uniprot_acc_split),category.names = c("ClinVar2018" , "ClinVar2021"), filename = 'ClinVar2018vs2021_genes.png')
+variants<-variants[!is.na(variants$var_id_genomic),]
 
-variants$cv21_gene<-(variants$Uniprot_acc_split %in% cv_21prot$Uniprot_acc_split)
-variants$pure_cv18_gene<-(variants$Uniprot_acc_split %in% cv_18prot$Uniprot_acc_split)
+variants$cv18_to_21_CV_test<-(variants$pure_cv18_to_21_gene & 
+                                variants$gnomadSet==0 & 
+                                !(variants$var_id_genomic %in% variants$var_id_genomic[variants$pure_cv18_to_21_gene==FALSE]))
 
-variant_ids_cv18<-(variants %>% filter(pure_cv18_gene==TRUE))$var_id_genomic
-variant_ids_cv21<-(variants %>% filter(cv21_gene==TRUE))$var_id_genomic
 
-variant_ids_gnomAD<-(variants %>% filter(gnomadSet==TRUE))$var_id_genomic
+variants$cv18_to_21_noCV_just_gnomad<-((!variants$cv18_to_21_CV_test) & 
+                                         variants$pure_cv18_to_21_gene &
+                                         (variants$gnomadSet==1) & 
+                                         !(variants$var_id_genomic %in% variants$var_id_genomic[variants$cv18_to_21_CV_test==TRUE]) &
+                                          !(variants$var_id_prot %in% variants$var_id_prot[variants$cv18_to_21_CV_test==TRUE]) )
 
-variants$pure_cv18_to_21_gene<-(variants$cv21_gene & (!variants$pure_cv18_gene)) & !(variants$var_id_genomic %in% variant_ids_gnomAD)
+variants$train_ds<-!(variants$pure_cv18_to_21_gene==TRUE) & variants$gnomadSet==TRUE & !is.na(variants$gnomadSet)
 
-variants$gnomad_no_cv21to18<-!variants$pure_cv18_to_21_gene
-variants$clinvar_no_cv21to18_no_gnomad<-!variants$pure_cv18_to_21_gene & !(variants$var_id_genomic %in% variant_ids_gnomAD)
-variants$cv18_to_21_CV_test<-(variants$pure_cv18_to_21_gene & variants$gnomadSet==0 & !(variants$var_id_genomic %in% variants$var_id_genomic[variants$pure_cv18_to_21_gene==FALSE]))
-variants$cv18_to_21_noCV_just_gnomad<-(!variants$cv18_to_21_CV_test & (variants$gnomadSet==1) & !(variants$var_id_genomic %in% variants$var_id_genomic[variants$cv18_to_21_CV_test==TRUE]) & variants$pure_cv18_to_21_gene)
-
-gnomad_no_cv21to18_temp<-(variants %>% filter(gnomad_no_cv21to18==TRUE))$var_id_genomic
-clinvar_no_cv21to18_no_gnomad_temp<-(variants %>% filter(clinvar_no_cv21to18_no_gnomad==TRUE))$var_id_genomic
-cv18_to_21_CV_test_temp<-(variants %>% filter(cv18_to_21_CV_test==TRUE))$var_id_genomic
-cv18_to_21_noCV_just_gnomad_temp<-(variants %>% filter(cv18_to_21_noCV_just_gnomad==TRUE))$var_id_genomic
-
-venn.diagram(x=list(gnomad_no_cv21to18_temp, clinvar_no_cv21to18_no_gnomad_temp, cv18_to_21_CV_test_temp,cv18_to_21_noCV_just_gnomad_temp ),category.names = c("gnomad_no_cv21to18_temp" , "clinvar_no_cv21to18_no_gnomad_temp", "cv18_to_21_CV_test_temp", "cv18_to_21_noCV_just_gnomad_temp"), filename = 'Train_test_sets.png')
+cv18_to_21_CV_test_temp<-variants[variants$cv18_to_21_CV_test==TRUE,]
+clinvar_no_cv21to18_no_gnomad<-variants[variants$clinvar_no_cv21to18_no_gnomad==TRUE,]
+cv18_to_21_noCV_just_gnomad_temp<-variants[variants$cv18_to_21_noCV_just_gnomad==TRUE,]
+train_ds_temp<-variants[variants$train_ds==TRUE,]
+  
+venn.diagram(x=list(clinvar_no_cv21to18_no_gnomad$var_id_genomic, cv18_to_21_noCV_just_gnomad_temp$var_id_genomic, cv18_to_21_CV_test_temp$var_id_genomic, train_ds_temp$var_id_genomic ),
+             category.names = c("clinvar_no_cv21to18_no_gnomad" , "cv18_to_21_noCV_just_gnomad_temp", "cv18_to_21_CV_test_temp", "potential gnomad train"), filename = 'Train_test_sets.png')
+venn.diagram(x=list(clinvar_no_cv21to18_no_gnomad$var_id_prot, cv18_to_21_noCV_just_gnomad_temp$var_id_prot, cv18_to_21_CV_test_temp$var_id_prot, train_ds_temp$var_id_prot),
+             category.names = c("clinvar_no_cv21to18_no_gnomad" , "cv18_to_21_noCV_just_gnomad_temp", "cv18_to_21_CV_test_temp", "potential gnomad train"), filename = 'Train_test_sets_prot.png')
 
 
 colnames(variants)<-gsub("++","..",colnames(variants), fixed=TRUE)
 gc()
 
 write_csv(variants, file=basename(opt$output))
+
 
