@@ -26,6 +26,7 @@ rule all:
 		"data/joined_grid/joined_grid.tsv",
 		"data/prediction/final_written_full_model.RData",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
+		"data/analyse_score/spearman_plot.pdf",
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -354,6 +355,7 @@ rule write_final_model:
 		"data/prediction/final_written_full_model.RData",
 		"data/prediction/final_toAS_properties.RData",
 		"data/prediction/final_colnames_to_use.RData",
+		"data/prediction/pre_final_model_test_dataset2.csv.gz"
 	resources: cpus=8, mem_mb=30000, time_job=480
 	params:
 		partition=config["short_partition"]
@@ -460,4 +462,26 @@ rule combine_all_proteins_to_one_file:
 	resources: time_job=4800, mem_mb=8000
 	shell:
 		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
+		
+
+rule analyse_score:
+	input:
+		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
+		test_dataset="data/prediction/pre_final_model_test_dataset2.csv.gz"
+	output:
+		one_plot="data/analyse_score/spearman_plot.pdf",
+	resources: cpus=1, mem_mb=18000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/analyse_score/"
+	shell:
+		"""
+		Rscript scripts/analyse_score.R \
+		--test_dataset {input.test_dataset} \
+		--validation_set {input.compiled} \
+		--out_folder {params.out_folder}
+		"""
+
+
+
 

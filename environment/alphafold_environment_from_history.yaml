@@ -25,3 +25,4 @@ dependencies:
   - biopandas
   - r-r.utils
   - tabix
+  - r-gridextra

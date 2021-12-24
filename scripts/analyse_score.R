@@ -33,64 +33,79 @@ dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
 test_dataset2$multi<-!grepl(fixed("F1-"), test_dataset2$pdb_file)
 
-ggplot(test_dataset2)+
+p_mult<-ggplot(test_dataset2)+
   geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
   facet_wrap(~multi, scales = "free_y")+
   ggtitle("AlphScore values in relation to\nsingle (left) / multi (right) file proteins")+
   xlab("AlphScore")+
   labs(fill = "(l) benign")+
   theme_minimal()
+print(p_mult)
+ggsave(filename="p_mult.pdf", p_mult)
 
-ggplot(test_dataset2)+
+p_plDDT<-ggplot(test_dataset2)+
   geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
   facet_wrap(~protein_mean_b_factor>70)+
   ggtitle("AlphScore values in relation to\nmean pLDDT=<70 (left) / >70 (right) file proteins")+
   xlab("AlphScore")+
   labs(fill = "(l) benign")+
   theme_minimal()
+print(p_plDDT)
+ggsave(filename="p_plDDT.pdf", p_plDDT)
 
 
-ggplot(test_dataset2)+
+p_length<-ggplot(test_dataset2)+
   geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
   facet_wrap(~protein_length>600 )+
   ggtitle("AlphScore values in relation to protein length \n =< 600 (left) >600 (right)")+
   xlab("AlphScore")+
   labs(fill = "(l) benign")+
   theme_minimal()
+print(p_length)
+ggsave(filename="p_length.pdf", p_length)
 
-ggplot(test_dataset2)+
+p_PLI<-ggplot(test_dataset2)+
   geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
   facet_wrap(~pLI>0.5 )+
   ggtitle("AlphScore values in relation to protein pLI \n =< 0.5 (left) >0.5 (right)")+
   xlab("AlphScore")+
   labs(fill = "(l) benign")
+print(p_PLI)
+ggsave(filename="p_PLI.pdf", p_PLI)
 
-ggplot(test_dataset2, aes(x=residue_number/protein_length, y=outcome))+
+p_am_pos<-ggplot(test_dataset2, aes(x=residue_number/protein_length, y=outcome))+
   geom_point(alpha=0.02, size=5)+
   geom_smooth()+
   ggtitle("Pathogenic variants in relation to relative amino acid position")+
   theme_minimal()
+print(p_am_pos)
+ggsave(filename="p_am_pos.pdf", p_am_pos)
 
-ggplot(test_dataset2, aes(x=residue_number/protein_length, y=predicted_Alph))+
+p_am_pos2<-ggplot(test_dataset2, aes(x=residue_number/protein_length, y=predicted_Alph))+
   geom_point(alpha=0.5)+
   geom_smooth()+
   ggtitle("AlphScore values in relation to relative position in Protein")+
   theme_minimal()
+print(p_am_pos2)
+ggsave(filename="p_am_pos2.pdf", p_am_pos2)
 
-
-ggplot(test_dataset2, aes(x=residue_number, y=outcome))+
+p_resnum_out<-ggplot(test_dataset2, aes(x=residue_number, y=outcome))+
   geom_jitter(alpha=0.05, size=2, height=0.1)+
   geom_smooth()+
   ggtitle("Pathogenic variants in relation to absolute amino acid position")+
   coord_cartesian(xlim=c(0,3000))+
   theme_minimal()
+print(p_resnum_out)
+ggsave(filename="p_resnum_out.pdf", p_resnum_out)
 
-ggplot(test_dataset2, aes(x=residue_number, y=predicted_Alph))+
+p_resnum_pred<-ggplot(test_dataset2, aes(x=residue_number, y=predicted_Alph))+
   geom_jitter(alpha=0.05, size=2, height=0.1)+
   geom_smooth()+
   ggtitle("AlphaScore in relation to amino acid position")+
   coord_cartesian(xlim=c(0,3000))+
   theme_minimal()
+print(p_resnum_pred)
+ggsave(filename="p_resnum_pred.pdf", p_resnum_pred)
 
 test_dataset2$CADD_plus_ALPH<-(test_dataset2$predicted_Alph+test_dataset2$CADD_raw)
 test_dataset2$REVEL_plus_ALPH<-test_dataset2$predicted_Alph+test_dataset2$REVEL_score
@@ -176,24 +191,34 @@ p6<-ggplot(rhos)+
   geom_hline(yintercept=allAA_aucs$values[6])+
   coord_cartesian(ylim=c(0.5,1))
 
-grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+combined_plot<-grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+print(combined_plot)
+ggsave(filename="combined_plot.pdf", plot=combined_plot)
 
-ggplot(allAA_aucs)+
+aucs<-ggplot(allAA_aucs)+
   geom_col(aes(x=scores, y=values))+
-  coord_cartesian(ylim=c(0.5,1))
+  coord_cartesian(ylim=c(0,1))
+print(aucs)
+ggsave(filename="aucs.pdf", plot=aucs)
 
 
+###### validation Dataset
 
-validation_dataset<-validation_dataset[is.na(validation_dataset$gnomAD_genomes_AC) & is.na(validation_dataset$gnomAD_genomes_AC),]
 
-ggplot(validation_dataset)+
+validation_dataset<-validation_dataset %>%
+  filter(is.na(gnomAD_genomes_AC) & is.na(gnomAD_genomes_AC))
+
+check_corr_CADD<-ggplot(validation_dataset)+
   geom_point(aes(x=CADD_raw, y=DMS_val), alpha=0.1)+
   facet_wrap(~ paste(DMS, gene_dms), scales="free")
+print(check_corr_CADD)
+ggsave(filename="check_corr_CADD.pdf", plot=check_corr_CADD)
 
-ggplot(validation_dataset)+
+check_corr_Alph<-ggplot(validation_dataset)+
   geom_point(aes(x=AlphScore, y=DMS_val), alpha=0.1)+
   facet_wrap(~ paste(DMS, gene_dms), scales="free")
-
+print(check_corr_Alph)
+ggsave(filename="check_corr_Alph.pdf", plot=check_corr_Alph)
 
 validation_dataset$REVEL_plus_ALPH<-13.5*validation_dataset$AlphScore + 6.3*validation_dataset$REVEL_score
 validation_dataset$CADD_plus_ALPH<-18*validation_dataset$AlphScore + 1.3*validation_dataset$CADD_raw
@@ -257,5 +282,5 @@ plot_spearmans<-ggplot(spearmans_joined, aes(x=method, y=abs(spearm)))+
 
 plot_spearmans
 
-ggsave(filename= "spearman_plot.pdf", plot=plot_spearmans)
+ggsave(filename= "spearman_plot.pdf", plot=plot_spearmans, height=8, width=6)
 
