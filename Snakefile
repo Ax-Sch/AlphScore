@@ -1,4 +1,5 @@
 configfile: "config/config.yaml"
+chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
 
 import subprocess
 import os
@@ -18,15 +19,17 @@ grid_search_table=grid_search_table.iloc[[0,1]] # testing
 
 rule all:
 	input:
-		expand("data/pdb_features/{pdb}/b_factors.csv", pdb=relevant_alphafold_models),
-		expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=relevant_alphafold_models),
-		"data/train_testset1/gnomad_extracted.csv.gz",
-		"data/merge_all/all_possible_values_concat.csv.gz",
-		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
-		"data/joined_grid/joined_grid.tsv",
-		"data/prediction/final_written_full_model.RData",
-		"data/validation_set/validation_set_w_AlphScore.csv.gz",
-		"data/analyse_score/spearman_plot.pdf",
+		#expand("data/pdb_features/{pdb}/b_factors.csv", pdb=relevant_alphafold_models),
+		#expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=relevant_alphafold_models),
+		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
+		#"data/train_testset1/gnomad_extracted.csv.gz",
+		#"data/merge_all/all_possible_values_concat.csv.gz",
+		#expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
+		#"data/joined_grid/joined_grid.tsv",
+		#"data/prediction/final_written_full_model.RData",
+		#"data/validation_set/validation_set_w_AlphScore.csv.gz",
+		#"data/analyse_score/spearman_plot.pdf",
+		"data/plot_k/barplot_preprocessed.pdf"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -45,10 +48,10 @@ rule download_dbNSFP_AlphaFold_files:
 		mkdir -p "{params.alphafold}"
 		
 		cd "{params.alphafold}"
-		#rm -f UP000005640_9606_HUMAN_v2.tar
-		#wget {config[alphafold_download_adress]}
-		#tar -xf UP000005640_9606_HUMAN_v2.tar
-		#rm UP000005640_9606_HUMAN.tar
+		rm -f UP000005640_9606_HUMAN_v2.tar
+		wget {config[alphafold_download_adress]}
+		tar -xf UP000005640_9606_HUMAN_v2.tar
+		rm UP000005640_9606_HUMAN_v2.tar
 		
 		cd $homedir
 		
@@ -56,7 +59,7 @@ rule download_dbNSFP_AlphaFold_files:
 		rm -f dbNSFP4.2a.zip
 		wget {config[dbNSFP_download_adress]}
 		unzip dbNSFP4.2a.zip
-		#rm dbNSFP4.2a.zip
+		rm dbNSFP4.2a.zip
 		
 		cd $homedir
 		touch {output}
@@ -70,9 +73,10 @@ rule split_dbNSFP:
 		"data/split_dbNSFP/chr{chr}_ok"
 	params:
 		tmp="data/split_dbNSFP/tmp/chr{chr}/",
+		db_file="data/dbNSFP_raw/dbNSFP4.2a_variant.chr{chr}.gz",
 		outdir="data/split_dbNSFP/by_uniprotID/",
 		partition=config["short_partition"]
-	resources: time_job=480, mem_mb=8000
+	resources: time_job=480, mem_mb=5000
 	shell:
 		"""
 		homedir=$(pwd)
@@ -81,16 +85,16 @@ rule split_dbNSFP:
 		cd "{params.tmp}"
 		mkdir -p header
 		
-		if (( $(zcat "{input}" | head -n1 > header/header.txt) )) # pipe / head combination produces non-0-exit
+		if (( $(zcat $homedir"/{params.db_file}" | head -n1 > header/header.txt) )) # pipe / head combination produces non-0-exit
 		then
 		echo "not ok"
 		fi
 		
-		zcat "{input}" | tail -n+2 | split -l 200000 - {wildcards.chr}
+		zcat $homedir"/{params.db_file}" | tail -n+2 | split -l 20000 - {wildcards.chr}
 		
-		for file in $(ls)
+		for file in $(find * -maxdepth 0 -type f)
 		do
-		python scripts/split_dbNSFP_unnest.py $homedir"config/dbnsfp_files.txt" $(pwd)"/header/header.txt" $file $homedir"/"{params.outdir}
+		python $homedir"/scripts/split_dbNSFP_unnest.py" $homedir"/config/pdb_ids.txt" $(pwd)"/header/header.txt" $file $homedir"/"{params.outdir}
 		done
 		
 		cd $homedir
@@ -235,7 +239,8 @@ rule combine_features_pdb_level:
 rule graph_based_analysis_pdb_level:
 	input:
 		comb1="data/combine1_pdb_data/{pdb_name}_combined_features.csv.gz",
-		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz"
+		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz",
+		dbnsfp=expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
 	output:
 		"data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz"
 	params:
@@ -482,6 +487,35 @@ rule analyse_score:
 		--out_folder {params.out_folder}
 		"""
 
+rule properties_dataset:
+	input:
+		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
+		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+		excel="resources/available_colnames_W_surr.xlsx"
+	output:
+		barplot_pre="data/plot_k/barplot_preprocessed.pdf",
+		barplot_rec="data/plot_k/barplot_recalibrated.pdf",
+		AA_comb="data/plot_k/AA_ex_compared.pdf",
+		char_var="data/plot_k/characteristics_variants.tsv"
+	resources: cpus=1, mem_mb=18000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/plot_k/"
+	shell:
+		"""
+		Rscript scripts/Fig_recal.R \
+		--input_preprocessed {input.preprocessed} \
+		--input_recalibrated {input.recalibrated} \
+		--out_folder {params.out_folder} 
 
+		Rscript scripts/AA_freq.R \
+		--input_recalibrated {input.recalibrated} \
+		--excel_location {input.excel} \
+		--out_folder {params.out_folder} 
+
+		Rscript scripts/char_variants.R \
+		--csv_location {input.recalibrated} \
+		--out_folder {params.out_folder} 
+		"""
 
 

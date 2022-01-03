@@ -31,7 +31,7 @@ offset=( int(snakemake.wildcards[0].split("-")[2][1:] ) - 1) * 200
 
 
 pdb_path=snakemake.params[1]
-os.system('gunzip -kf "' + pdb_path + '".gz')
+os.system('gunzip -c "' + pdb_path + '".gz > ' +pdb_path)
 molecule = bg.Pmolecule(pdb_path)
 os.system('rm -f "' + pdb_path+ '"')
 

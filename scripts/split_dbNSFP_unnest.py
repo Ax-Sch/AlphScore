@@ -25,8 +25,8 @@ header_file = pd.read_csv(sys.argv[2], sep="\t")
 dbNSFP_split_part=pd.read_csv(sys.argv[3], sep="\t", names=header_file.columns.to_list())
 
 # convert the fields in Uniprot_acc_split / HGVSp_VEP_split to lists
-dbNSFP_split_part[["Uniprot_acc_split"]]=dbNSFP_split_part.Uniprot_acc.str.split(";")
-dbNSFP_split_part[["HGVSp_VEP_split"]]=dbNSFP_split_part.HGVSp_VEP.str.split(";")
+dbNSFP_split_part["Uniprot_acc_split"]=dbNSFP_split_part.Uniprot_acc.str.split(";")
+dbNSFP_split_part["HGVSp_VEP_split"]=dbNSFP_split_part.HGVSp_VEP.str.split(";")
 
 # unnest dbNSFP_split_part.HGVSp_VEP_split e.g. from [["a1","a2","a3"],["b1","b2"], ["c1"]] to ["a1","a2","a3","b1","b2","c1"]
 hgvs_unnested=[item for sublist in dbNSFP_split_part.HGVSp_VEP_split for item in sublist]
