@@ -40,6 +40,8 @@ option_list = list(
               help="Write predictions of test-dataset to file"),
   make_option(c("-f", "--full_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
               help="generate a full model"),
+  make_option(c("-a", "--importance"), type="character", default="impurity", 
+              help="variable importance mode of the ranger model"),
   make_option(c("-y", "--write_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
               help="write the model parameters to a file"),
   make_option(c("-k", "--k_fold_cross_val"), type="logical", default=FALSE,
@@ -48,8 +50,6 @@ option_list = list(
 )
 
 opt = parse_args(OptionParser(option_list=option_list))
-#DEBUG:
-#opt$csv_location="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz"
 
 save_tibble<-data.frame()
 
@@ -91,13 +91,16 @@ correlationMatrix <- cor(dfr,use="complete.obs")
 cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
 colnames_new<-colnames(cols_removed)
 rm(variants_pred)
+
+variants<-variants[complete.cases(variants[,c(colnames_new, "outcome", "CADD_raw")]), ]
 gc()
+
 
 ranger_fit<-function(xtrain_dataset){
   library(ranger)
   model1<-ranger(outcome ~ ., 
                  data=xtrain_dataset, 
-                 importance="impurity", 
+                 importance=opt$importance, 
                  max.depth=opt$max_depth_param,
                  num.trees = opt$num_trees_param,
                  min.node.size = opt$min_node_param
@@ -111,7 +114,7 @@ extraT_fit<-function(xtrain_dataset){
   library(ranger)
   model1<-ranger(outcome ~ ., 
                  data=xtrain_dataset, 
-                 importance="impurity", 
+                 importance=opt$importance, 
                  splitrule="extratrees",
                  max.depth=opt$max_depth_param,
                  num.trees = opt$num_trees_param,
@@ -258,74 +261,39 @@ if (opt$k_fold_cross_val == TRUE){
                           gnomad_train_nrow=nrow(var_full_model))
 
 }else{
-  
   train_dataset<-variants %>% 
     filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
-    dplyr::select(c(colnames_prediction, "outcome"))
+    dplyr::select(all_of(colnames_new), "outcome")
+
+  gnomad_model_Alph<-fit_model(train_dataset)
   
-  train_dataset<-train_dataset[,colnames_new] 
-  train_dataset<-train_dataset[complete.cases(train_dataset),]
+  train_dataset$predicted_Alph<-predict_model(train_dataset, gnomad_model_Alph)
+  variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
     filter(clinvar_no_cv21to18_no_gnomad==TRUE)
-  interim_dataset<-interim_dataset[complete.cases(interim_dataset[,c(colnames_new, "outcome", "CADD_raw")]), ]
-  
-  gnomad_model_Alph<-fit_model(train_dataset %>% dplyr::select(all_of(colnames_new)))
-  
-  train_dataset$predicted_Alph<-predict_model(train_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
-  roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "red")
-  
-  interim_dataset$predicted_Alph<-predict_model(interim_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
-  
-  roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$CADD_raw), print.auc = TRUE, col = "red")
-  roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$predicted_Alph), print.auc = TRUE, 
-                   col = "green", print.auc.y = .4, add = TRUE)
-  
-  
-  model_glm_AC <- glm(outcome ~ . , family=binomial(link='logit'),
-                data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
-                  filter(complete.cases(.)))
-  
-  model_glm_AR <- glm(outcome ~ . , family=binomial(link='logit'),
-                   data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, REVEL_score) %>%
-                     filter(complete.cases(.)))
-  
-  model_glm_RC <- glm(outcome ~ . , family=binomial(link='logit'),
-                   data=interim_dataset %>% dplyr::select(outcome, CADD_raw, REVEL_score) %>%
-                     filter(complete.cases(.)))
-  model_glm_ARC <- glm(outcome ~ . , family=binomial(link='logit'),
-                      data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw, REVEL_score) %>%
-                        filter(complete.cases(.)))
   
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test==TRUE)
   
-  test_dataset<-test_dataset[complete.cases(test_dataset[,c(colnames_new, "outcome")]), ]
-  test_dataset$predicted_Alph<-predict_model(test_dataset %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph)
-  #test_dataset$predicted_scaled<-scale(test_dataset$predicted_Alph)
+  roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "blue")
+  legend(0.3, 0.3, legend=c("Alph"),
+         col=c("blue"), lty=1, cex=0.8)
+  title(main = "train set")
   
-  test_dataset$predicted_glm_AC<-predict(model_glm_AC, test_dataset)
-  test_dataset$predicted_glm_AR<-predict(model_glm_AR, test_dataset)
-  test_dataset$predicted_glm_RC<-predict(model_glm_RC, test_dataset)
-  test_dataset$predicted_glm_ARC<-predict(model_glm_ARC, test_dataset)
-
+  roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$CADD_raw), print.auc = TRUE, col = "red")
+  roc_rose <- plot(roc(interim_dataset$outcome, interim_dataset$predicted_Alph), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .4, add = TRUE)
+  legend(0.3, 0.3, legend=c("CADD", "Alph"),
+         col=c("red", "blue"), lty=1, cex=0.8)
+  title(main = "interim set")
   
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$CADD_raw), print.auc = TRUE, col = "red")
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AC), print.auc = TRUE, 
-                   col = "blue", print.auc.y = .6, add = TRUE)
   roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
-                   col = "green", print.auc.y = .4, add = TRUE)
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AR), print.auc = TRUE, 
-                   col = "darkgreen", print.auc.y = .3, add = TRUE)
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_RC), print.auc = TRUE, 
-                   col = "brown", print.auc.y = .2, add = TRUE)
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_ARC), print.auc = TRUE, 
-                   col = "grey", print.auc.y = .1, add = TRUE)
-  roc_rose <- plot(roc(test_dataset$outcome, test_dataset$REVEL_score), print.auc = TRUE, 
-                   col = "black", print.auc.y = 0.0, add = TRUE)
-  legend(0.3, 0.3, legend=c("CADD", "Alph + CADD", "Alph", "Alph + REVEL", "CADD + REVEL", "Alph + CADD + REVEL",
-                        "REVEL"),
-         col=c("red", "blue", "green", "darkgreen","brown", "grey", "black"), lty=1, cex=0.8)
+                   col = "blue", print.auc.y = .4, add = TRUE)
+  legend(0.3, 0.3, legend=c("CADD", "Alph"),
+         col=c("red", "blue"), lty=1, cex=0.8)
+  title(main = "test set")
   
   save_tibble <- rbind(save_tibble, 
                        tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
@@ -333,45 +301,22 @@ if (opt$k_fold_cross_val == TRUE){
                               auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
                               auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
                               auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc, 
-                              auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
-                              auc_glm_AC_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_AC)$auc, 
-                              auc_glm_AR_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_AR)$auc, 
-                              auc_glm_RC_test_CV=roc(test_dataset$outcome, test_dataset$predicted_glm_RC)$auc, 
                               gnomad_train_nrow=nrow(train_dataset),
                               interim_nrow=nrow(interim_dataset),
                               test_nrow=nrow(test_dataset),
-                              glm_alpha_AC=model_glm_AC$coefficients[2],
-                              glm_CADD_AC=model_glm_AC$coefficients[3],
-                              glm_alpha_AR=model_glm_AR$coefficients[2],
-                              glm_REVEL_AR=model_glm_AR$coefficients[3],
-                              glm_CADD_CR=model_glm_RC$coefficients[2],
-                              glm_REVEL_CR=model_glm_RC$coefficients[3],
                               condition=opt$prefix, 
                               params=I(list(opt))))
   
-  ggplot(test_dataset)+
-    geom_point(aes(x=predicted_Alph, y=CADD_raw), alpha=0.3)+
-    facet_wrap(~outcome)
-  
   if (opt$write_dataset){
-    write_csv(x=test_dataset, file=paste0(opt$prefix,"_test_dataset2.csv.gz"))
+    write_csv(x=variants, file=paste0(opt$prefix,"_variants.csv.gz"))
   }
 }
 
-
 if (opt$method_pred %in% c("randomforest", "extratree")){
-  ##### CHECK properties of models
-  var_imp<-tibble(importance=as.vector(gnomad_model_Alph$variable.importance), variable=names(gnomad_model_Alph$variable.importance))
-  
-  var_importance<-ggplot(var_imp, aes(x=reorder(variable,importance), y=importance,fill=importance))+ 
-    geom_bar(stat="identity", position="dodge")+ coord_flip()+
-    ylab("Variable Importance")+
-    xlab("")+
-    ggtitle("Information Value Summary")+
-    guides(fill=F)+
-    scale_fill_gradient(low="red", high="blue")
-  
-  ggsave(filename=paste0(opt$prefix,"_importance.pdf"), plot=var_importance, height=49)
+  var_imp<-tibble(importance=as.vector(gnomad_model_Alph$variable.importance), 
+                  variable=names(gnomad_model_Alph$variable.importance))
+  write_tsv(x=var_imp,
+      file = paste0(opt$prefix,"_", opt$importance, "_importance.tsv"))
 }
 
 if (opt$write_model){
@@ -381,3 +326,4 @@ if (opt$write_model){
 }
 
 write_tsv(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
+

@@ -247,7 +247,7 @@ rule graph_based_analysis_pdb_level:
 		"data/split_dbNSFP/by_uniprotID/",
 		pdb_path=config["pdb_dir"]+"{pdb_name}.pdb",
 		partition=config["short_partition"]
-	resources: time_job=480, mem_mb=8000
+	resources: time_job=240, mem_mb=15000
 	script:
 		"scripts/graph_based_analysis_pdb_level.py"
 		
@@ -260,7 +260,7 @@ rule combine_pdb_level_files:
 	params:
 		"data/split_dbNSFP/by_uniprotID/",
 		partition=config["short_partition"]
-	resources: time_job=240, mem_mb=4000
+	resources: time_job=240, mem_mb=10000
 	run:
 		import pandas as pd
 		import os
