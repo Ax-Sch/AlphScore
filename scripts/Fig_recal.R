@@ -36,7 +36,9 @@ plot_pre<- ggplot(from_AS_pre,aes(x=reorder(from_AS, -frac), y=frac)) +
   geom_text(aes(x=reorder(from_AS, -frac), y=frac, label=counts_pre$n),
             position = position_dodge(width = 1),
             vjust = -0.5, 
-            size = 2.5, colour = "black", check_overlap = TRUE)
+            size = 2.5, colour = "black", check_overlap = TRUE)+
+  theme_minimal()+
+  labs(x="reference AA",y="proportion of proxy-pathogenic AAs")
 
 ggsave("barplot_preprocessed.pdf", width=200, height=100, units="mm", dpi=300)
 
@@ -58,6 +60,8 @@ plot_recal<-ggplot(from_AS_recal,aes(x=factor(from_AS,level=c("TYR","PHE","TRP",
   geom_text(aes(x=reorder(from_AS, -frac), y=frac, label=counts_recal$n),
             position = position_dodge(width = 1),
             vjust = -0.5, 
-            size = 2.5, colour = "black", check_overlap = TRUE)
+            size = 2.5, colour = "black", check_overlap = TRUE)+
+  theme_minimal()+
+  labs(x="reference AA",y="proportion of proxy-pathogenic AAs")
 
 ggsave("barplot_recalibrated.pdf", width=200, height=100, units="mm", dpi=300)
