@@ -7,7 +7,7 @@ option_list = list(
   make_option(c("-r", "--input_recalibrated"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/SSH/gnomad_extracted_prepro_rec.csv.gz", 
               help="location of csv.gz file"),
   make_option(c("-e", "--excel_location"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/local_files/available_colnames_W_surr.xlsx", 
-              help="location of csv.gz file"),
+              help="location of excel file"),
   make_option(c("-o", "--out_folder"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/local_files", 
               help="name of folder to store output")
   
