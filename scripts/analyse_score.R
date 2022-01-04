@@ -2,7 +2,6 @@ library(tidyverse)
 library(pROC)
 library(gridExtra)
 library(optparse)
-library(plotly)
 set.seed(1)
 
 option_list = list(

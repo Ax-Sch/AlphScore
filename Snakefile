@@ -28,8 +28,9 @@ rule all:
 		#"data/joined_grid/joined_grid.tsv",
 		#"data/prediction/final_written_full_model.RData",
 		#"data/validation_set/validation_set_w_AlphScore.csv.gz",
-		#"data/analyse_score/spearman_plot.pdf",
-		"data/plot_k/barplot_preprocessed.pdf"
+		"data/analyse_score/spearman_plot.pdf",
+		"data/plot_k/barplot_preprocessed.pdf",
+		"data/combine_scores/aucs.pdf"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -360,42 +361,59 @@ rule write_final_model:
 		"data/prediction/final_written_full_model.RData",
 		"data/prediction/final_toAS_properties.RData",
 		"data/prediction/final_colnames_to_use.RData",
-		"data/prediction/pre_final_model_test_dataset2.csv.gz"
+		"data/prediction/pre_final_model_variants.csv.gz"
 	resources: cpus=8, mem_mb=30000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
 		"""
-#		Rscript scripts/prediction.R \
-#		--prefix pre_final_model \
-#		--excel_location resources/available_colnames_W_surr.xlsx \
-#		--method_pred extratree \
-#		--num_trees_param 500 \###### CHANGE
-#		--max_depth_param 6 \
-#		--min_node_param 10 \
-#		--cor_param 0.999999 \
-#		--b_factor_param 60 \
-#		--eta_param 0 \
-#		--subsample_param 0 \
-#		--min_child_weight_param 0 \
-#		--gamma_param 0 \
-#		--k_fold_cross_val TRUE
+		Rscript scripts/prediction.R \
+		--prefix pre_final_model \
+		--excel_location resources/available_colnames_W_surr.xlsx \
+		--method_pred extratree \
+		--num_trees_param 200 \
+		--max_depth_param 6 \
+		--min_node_param 10 \
+		--cor_param 0.999999 \
+		--b_factor_param 60 \
+		--eta_param 0 \
+		--subsample_param 0 \
+		--min_child_weight_param 0 \
+		--gamma_param 0 \
+		--k_fold_cross_val TRUE
 
-#		Rscript scripts/prediction.R \
-#		--prefix pre_final_model \
-#		--excel_location resources/available_colnames_W_surr.xlsx \
-#		--method_pred extratree \
-#		--num_trees_param 2000 \
-#		--max_depth_param 6 \
-#		--min_node_param 10 \
-#		--cor_param 0.999999 \
-#		--b_factor_param 60 \
-#		--eta_param 0 \
-#		--subsample_param 0 \
-#		--min_child_weight_param 0 \
-#		--gamma_param 0 \
-#		--write_model TRUE \
-#		--write_dataset TRUE
+		Rscript scripts/prediction.R \
+		--prefix pre_final_model \
+		--excel_location resources/available_colnames_W_surr.xlsx \
+		--method_pred extratree \
+		--num_trees_param 200 \
+		--max_depth_param 6 \
+		--min_node_param 10 \
+		--cor_param 0.999999 \
+		--b_factor_param 60 \
+		--eta_param 0 \
+		--subsample_param 0 \
+		--min_child_weight_param 0 \
+		--gamma_param 0 \
+		--write_model TRUE \
+		--write_dataset TRUE
+		
+		Rscript scripts/prediction.R \
+		--prefix pre_final_model \
+		--excel_location resources/available_colnames_W_surr.xlsx \
+		--method_pred extratree \
+		--num_trees_param 200 \
+		--max_depth_param 6 \
+		--min_node_param 10 \
+		--cor_param 0.999999 \
+		--b_factor_param 60 \
+		--eta_param 0 \
+		--subsample_param 0 \
+		--min_child_weight_param 0 \
+		--gamma_param 0 \
+		--write_model FALSE \
+		--write_dataset FALSE \
+		--importance permutation
 
 		Rscript scripts/prediction.R \
 		--prefix final \
@@ -469,10 +487,10 @@ rule combine_all_proteins_to_one_file:
 		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
 		
 
-rule analyse_score:
+rule analyse_score_using_DMS_data:
 	input:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
-		test_dataset="data/prediction/pre_final_model_test_dataset2.csv.gz"
+		test_dataset="data/prediction/pre_final_model_variants.csv.gz"
 	output:
 		one_plot="data/analyse_score/spearman_plot.pdf",
 	resources: cpus=1, mem_mb=18000, time_job=480
@@ -482,8 +500,24 @@ rule analyse_score:
 	shell:
 		"""
 		Rscript scripts/analyse_score.R \
-		--test_dataset {input.test_dataset} \
+		--variants {input.test_dataset} \
 		--validation_set {input.compiled} \
+		--out_folder {params.out_folder}
+		"""
+
+rule combine_alphafold_w_existing_scores:
+	input:
+		variant_dataset="data/prediction/pre_final_model_variants.csv.gz"
+	output:
+		one_plot="data/combine_scores/aucs.pdf",
+	resources: cpus=1, mem_mb=18000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/combine_scores/"
+	shell:
+		"""
+		Rscript scripts/combine_scores.R \
+		--variants {input.variant_dataset} \
 		--out_folder {params.out_folder}
 		"""
 
