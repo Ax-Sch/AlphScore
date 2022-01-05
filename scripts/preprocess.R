@@ -50,15 +50,17 @@ cv18s<-cv_ids18 %>%
 
 cv_21s_not_18s<-cv21s[ ((!cv21s$Uniprot_acc_split %in% cv18s$Uniprot_acc_split) & (!cv21s$id %in% cv18s$id) & (!cv21s$var_id_prot %in% cv18s$var_id_prot)),]
 
+gnomad_variants<-(variants %>% filter(gnomadSet==0))
+
 venn.diagram(x=list(cv18s$Uniprot_acc_split, cv21s$Uniprot_acc_split, cv_21s_not_18s$Uniprot_acc_split),category.names = c("ClinVar2018\nproteins" , "ClinVar2021\nproteins", "ClinVar2021\nnot 2018\nproteins"), filename = 'ClinVar_2018_2021_proteins.png')
 venn.diagram(x=list(cv18s$var_id_prot, cv21s$var_id_prot, cv_21s_not_18s$var_id_prot),category.names = c("ClinVar2018\nvariants" , "ClinVar2021\nvariants", "ClinVar2021\nnot 2018\nvariants"), filename = 'ClinVar_2018_2021_variants.png')
-venn.diagram(x=list(cv18s$id, cv21s$id,cv_21s_not_18s$id, gn_temp),category.names = c("ClinVar2018" , "ClinVar2021","ClinVar2021\nnot 2018", "gnomAD"), filename = 'ClinVar2018vs2021_variants_vs_gnomad.png')
+venn.diagram(x=list(cv18s$id, cv21s$id,cv_21s_not_18s$id, gnomad_variants$var_id_genomic),category.names = c("ClinVar2018" , "ClinVar2021","ClinVar2021\nnot 2018", "gnomAD"), filename = 'ClinVar2018vs2021_variants_vs_gnomad.png')
 
 variants$cv21_gene<-(variants$Uniprot_acc_split %in% cv21s$Uniprot_acc_split)
 variants$pure_cv18_gene<-(variants$Uniprot_acc_split %in% cv18s$Uniprot_acc_split)
 variants$pure_cv18_to_21_gene<-(variants$cv21_gene & (!variants$pure_cv18_gene))
 
-gnomad_variants<-(variants %>% filter(gnomadSet==0))
+
 
 
 #variants$gnomad_no_cv21to18<-!variants$pure_cv18_to_21_gene
