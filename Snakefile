@@ -383,8 +383,8 @@ rule join_grid_search_files:
 
 rule fit_models_w_final_settings_from_grid_search:
 	input:
-		"resources/available_colnames_W_surr.xlsx",
-		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
+		excel="resources/available_colnames_W_surr.xlsx",
+		csv="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 	output:
 		#"data/prediction/pre_final_model_results.tsv",
 		"data/prediction/final_written_full_model.RData",
@@ -398,7 +398,8 @@ rule fit_models_w_final_settings_from_grid_search:
 		"""
 		Rscript scripts/prediction.R \
 		--prefix pre_final_model_k_fold \
-		--excel_location resources/available_colnames_W_surr.xlsx \
+		--csv_location {input.csv} \
+		--excel_location {input.excel} \
 		--method_pred extratree \
 		--num_trees_param 2000 \
 		--max_depth_param 6 \
@@ -413,7 +414,8 @@ rule fit_models_w_final_settings_from_grid_search:
 
 		Rscript scripts/prediction.R \
 		--prefix pre_final_model \
-		--excel_location resources/available_colnames_W_surr.xlsx \
+		--csv_location {input.csv} \
+		--excel_location {input.excel} \
 		--method_pred extratree \
 		--num_trees_param 2000 \
 		--max_depth_param 6 \
@@ -430,7 +432,8 @@ rule fit_models_w_final_settings_from_grid_search:
 		
 		Rscript scripts/prediction.R \
 		--prefix pre_final_model \
-		--excel_location resources/available_colnames_W_surr.xlsx \
+		--csv_location {input.csv} \
+		--excel_location {input.excel} \
 		--method_pred extratree \
 		--num_trees_param 2000 \
 		--max_depth_param 6 \
@@ -447,7 +450,8 @@ rule fit_models_w_final_settings_from_grid_search:
 
 		Rscript scripts/prediction.R \
 		--prefix final \
-		--excel_location resources/available_colnames_W_surr.xlsx \
+		--csv_location {input.csv} \
+		--excel_location {input.excel} \
 		--method_pred extratree \
 		--num_trees_param 2000 \
 		--max_depth_param 6 \
