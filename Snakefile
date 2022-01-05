@@ -139,7 +139,7 @@ rule get_FEATURE_DSSP:
 		rm $temp_pdb*
 		"""
 
-rule get_protinter_interactions:
+rule get_feature_protinter_interactions:
 	input:
 		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz"
 	output:
@@ -171,7 +171,7 @@ rule get_protinter_interactions:
 		rm pdbfile.pdb
 		"""
 
-rule get_HSE:
+rule get_feature_HSE:
 	input:
 		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz"
 	output:
@@ -202,7 +202,7 @@ rule get_HSE:
 		df_HSE.to_csv(output[0], index=False)
 
 
-rule get_pLDDT:
+rule get_feature_pLDDT:
 	input:
 		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz"
 	output:
@@ -237,7 +237,7 @@ rule combine_features_pdb_level:
 		"scripts/combine_features_pdb_level.py"
 
 
-rule graph_based_analysis_pdb_level:
+rule add_graph_based_analysis_pdb_level:
 	input:
 		comb1="data/combine1_pdb_data/{pdb_name}_combined_features.csv.gz",
 		pdb=config["pdb_dir"]+"{pdb_name}.pdb.gz",
@@ -253,7 +253,7 @@ rule graph_based_analysis_pdb_level:
 		"scripts/graph_based_analysis_pdb_level.py"
 		
 
-rule combine_pdb_level_files:
+rule combine_pdb_level_files_to_protein_level:
 	input:
 		lambda wildcards : ["data/network/" + el.rstrip("\n") + "_combined_w_network_and_dbnsfp.csv.gz" for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id] # AF-A0A087WUL8-F3-model_v1_combined_features
 	output:
@@ -261,7 +261,7 @@ rule combine_pdb_level_files:
 	params:
 		"data/split_dbNSFP/by_uniprotID/",
 		partition=config["short_partition"]
-	resources: time_job=240, mem_mb=10000
+	resources: time_job=240, mem_mb=lambda wildcards : 3000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	run:
 		import pandas as pd
 		import os
@@ -304,8 +304,7 @@ rule extract_clinvar_gnomad_sets:
 	script:
 		"scripts/extract_clinvar_gnomad_sets.R"
 
-
-rule preprocess:
+rule preprocess_clinvar_gnomad_set:
 	input:
 		"data/train_testset1/gnomad_extracted.csv.gz"
 	output:
@@ -320,7 +319,38 @@ rule preprocess:
 		Rscript scripts/recalibrate_variants.R -i {output.preprocessed} -o {output.recalibrated}
 		"""
 
-rule training_generate_grid:
+rule get_properties_clinvar_gnomad_set:
+	input:
+		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
+		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+		excel="resources/available_colnames_W_surr.xlsx"
+	output:
+		barplot_pre="data/plot_k/barplot_preprocessed.pdf",
+		barplot_rec="data/plot_k/barplot_recalibrated.pdf",
+		AA_comb="data/plot_k/AA_ex_compared.pdf",
+		char_var="data/plot_k/characteristics_variants.tsv"
+	resources: cpus=1, mem_mb=18000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/plot_k/"
+	shell:
+		"""
+		Rscript scripts/Fig_recal.R \
+		--input_preprocessed {input.preprocessed} \
+		--input_recalibrated {input.recalibrated} \
+		--out_folder {params.out_folder} 
+
+		Rscript scripts/AA_freq.R \
+		--input_recalibrated {input.recalibrated} \
+		--excel_location {input.excel} \
+		--out_folder {params.out_folder} 
+
+		Rscript scripts/char_variants.R \
+		--csv_location {input.recalibrated} \
+		--out_folder {params.out_folder} 
+		"""
+
+rule training_do_grid_search:
 	input:
 		"resources/available_colnames_W_surr.xlsx",
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
@@ -336,7 +366,7 @@ rule training_generate_grid:
 			wildcards[0] + " --csv_location " + input[1] + 
 			" " + " ".join(parameters.iloc[0,1:].to_list()))
 
-rule join_grid_files:
+rule join_grid_search_files:
 	input:
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 	output:
@@ -351,8 +381,7 @@ rule join_grid_files:
 		cat {input} | grep -v "auc_Alph_train_gnomAD" >> {output}
 		"""
 
-
-rule write_final_model:
+rule fit_models_w_final_settings_from_grid_search:
 	input:
 		"resources/available_colnames_W_surr.xlsx",
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
@@ -368,10 +397,10 @@ rule write_final_model:
 	shell:
 		"""
 		Rscript scripts/prediction.R \
-		--prefix pre_final_model \
+		--prefix pre_final_model_k_fold \
 		--excel_location resources/available_colnames_W_surr.xlsx \
 		--method_pred extratree \
-		--num_trees_param 200 \
+		--num_trees_param 2000 \
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
@@ -386,7 +415,7 @@ rule write_final_model:
 		--prefix pre_final_model \
 		--excel_location resources/available_colnames_W_surr.xlsx \
 		--method_pred extratree \
-		--num_trees_param 200 \
+		--num_trees_param 2000 \
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
@@ -396,13 +425,14 @@ rule write_final_model:
 		--min_child_weight_param 0 \
 		--gamma_param 0 \
 		--write_model TRUE \
-		--write_dataset TRUE
+		--write_dataset TRUE \
+		--importance impurity
 		
 		Rscript scripts/prediction.R \
 		--prefix pre_final_model \
 		--excel_location resources/available_colnames_W_surr.xlsx \
 		--method_pred extratree \
-		--num_trees_param 200 \
+		--num_trees_param 2000 \
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
@@ -419,7 +449,7 @@ rule write_final_model:
 		--prefix final \
 		--excel_location resources/available_colnames_W_surr.xlsx \
 		--method_pred extratree \
-		--num_trees_param 200 \
+		--num_trees_param 2000 \
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
@@ -432,8 +462,7 @@ rule write_final_model:
 		--write_model TRUE
 		"""
 
-
-rule predict_alph:
+rule predict_Alphscore_protein_level:
 	input:
 		csv="data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz",
 		model="data/prediction/final_written_full_model.RData",
@@ -454,8 +483,7 @@ rule predict_alph:
 		--toAS_properties {input.to_AS}
 		"""
 
-
-rule create_validation_set:
+rule create_validation_set_DMS:
 	input:
 		"resources/",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz",
@@ -471,23 +499,7 @@ rule create_validation_set:
 		Rscript scripts/compile_scores.R
 		"""
 
-
-
-rule combine_all_proteins_to_one_file:
-	input:
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz", uniprot_id=relevant_uniprot_ids)
-	output:
-		"data/merge_all/all_possible_values_concat.csv.gz"
-	params:
-		partition=config["long_partition"],
-		in_folder="data/predicted_prots/",
-		out_folder="data/merge_all/"
-	resources: time_job=4800, mem_mb=8000
-	shell:
-		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
-		
-
-rule analyse_score_using_DMS_data:
+rule analyse_performance_on_DMS_data:
 	input:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
 		test_dataset="data/prediction/pre_final_model_variants.csv.gz"
@@ -521,35 +533,15 @@ rule combine_alphafold_w_existing_scores:
 		--out_folder {params.out_folder}
 		"""
 
-rule properties_dataset:
+rule combine_proteins_level_w_Alphscore_to_one_file:
 	input:
-		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
-		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
-		excel="resources/available_colnames_W_surr.xlsx"
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz", uniprot_id=relevant_uniprot_ids)
 	output:
-		barplot_pre="data/plot_k/barplot_preprocessed.pdf",
-		barplot_rec="data/plot_k/barplot_recalibrated.pdf",
-		AA_comb="data/plot_k/AA_ex_compared.pdf",
-		char_var="data/plot_k/characteristics_variants.tsv"
-	resources: cpus=1, mem_mb=18000, time_job=480
+		"data/merge_all/all_possible_values_concat.csv.gz"
 	params:
-		partition=config["short_partition"],
-		out_folder="data/plot_k/"
+		partition=config["long_partition"],
+		in_folder="data/predicted_prots/",
+		out_folder="data/merge_all/"
+	resources: time_job=4800, mem_mb=8000
 	shell:
-		"""
-		Rscript scripts/Fig_recal.R \
-		--input_preprocessed {input.preprocessed} \
-		--input_recalibrated {input.recalibrated} \
-		--out_folder {params.out_folder} 
-
-		Rscript scripts/AA_freq.R \
-		--input_recalibrated {input.recalibrated} \
-		--excel_location {input.excel} \
-		--out_folder {params.out_folder} 
-
-		Rscript scripts/char_variants.R \
-		--csv_location {input.recalibrated} \
-		--out_folder {params.out_folder} 
-		"""
-
-
+		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
