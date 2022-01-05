@@ -52,14 +52,14 @@ p_length<-ggplot(test_dataset)+
 print(p_length)
 ggsave(filename="p_length.pdf", p_length)
 
-p_PLI<-ggplot(test_dataset)+
-  geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
-  facet_wrap(~pLI>0.5 )+
-  ggtitle("AlphScore values in relation to protein pLI \n =< 0.5 (left) >0.5 (right)")+
-  xlab("AlphScore")+
-  labs(fill = "(l) benign")
-print(p_PLI)
-ggsave(filename="p_PLI.pdf", p_PLI)
+#p_PLI<-ggplot(test_dataset)+
+#  geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
+#  facet_wrap(~pLI>0.5 )+
+#  ggtitle("AlphScore values in relation to protein pLI \n =< 0.5 (left) >0.5 (right)")+
+#  xlab("AlphScore")+
+#  labs(fill = "(l) benign")
+#print(p_PLI)
+#ggsave(filename="p_PLI.pdf", p_PLI)
 
 p_am_pos<-ggplot(test_dataset, aes(x=residue_number/protein_length, y=outcome))+
   geom_point(alpha=0.02, size=5)+

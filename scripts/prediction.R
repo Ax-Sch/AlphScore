@@ -131,12 +131,6 @@ xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
   set.seed(1)
   train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome )
-  #n_ds<-nrow(xtrain_dataset)
-  #train_i<-sample(1:n_ds,as.integer(n_ds*0.8))
-  #train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[train_i] )
-  #test_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset[-train_i,] %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome[-train_i] )
-  #watchlist=list(train=train_ds, test=test_ds)
-  
   params <- list(max_depth = opt$max_depth_param, 
                  subsample=opt$subsample_param, 
                  eta=opt$eta_param, 
@@ -183,9 +177,9 @@ if (opt$method_pred=="xgboost"){
 
 if (opt$k_fold_cross_val == TRUE){
   set.seed(1)
-  genes<-unique(variants$gene)
-  genes<-as_tibble(genes)
-  genes$index<-as.integer(runif(nrow(genes),1,6))
+  Uniprot_IDs<-unique(variants$Uniprot_acc_split)
+  Uniprot_IDs<-as_tibble(Uniprot_IDs)
+  Uniprot_IDs$index<-as.integer(runif(nrow(Uniprot_IDs),1,6))
   
   
   glm_cv<-data.frame()
@@ -193,16 +187,16 @@ if (opt$k_fold_cross_val == TRUE){
   cc<-complete.cases(variants[, c(colnames_new, "outcome")])
   variants_filtered<-variants[cc, ]
   
-  for (h in unique(genes$index)) {
-    non_h_gnomad_train<-variants_filtered %>% filter(!gene %in% genes[genes$index==h,]$value) %>% #non_h = every gene with index = non-h (if h=1 then non_h=2,3,4,5 etc.); gnomadSet= 1 --> gnomad as training set
+  for (h in unique(Uniprot_IDs$index)) {
+    non_h_gnomad_train<-variants_filtered %>% filter(!Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #non_h = every Uniprot_acc_split with index = non-h (if h=1 then non_h=2,3,4,5 etc.); gnomadSet= 1 --> gnomad as training set
       filter(gnomadSet==1) 
-    non_h_cv_test <- variants_filtered %>% filter(!gene %in% genes[genes$index==h,]$value) %>% #non_h = every gene with index = non-h (if h=1 then 2,3,4,5 etc.); gnomadSet= 0 --> cv (ClinVar) as test set
+    non_h_cv_test <- variants_filtered %>% filter(!Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #non_h = every Uniprot_acc_split with index = non-h (if h=1 then 2,3,4,5 etc.); gnomadSet= 0 --> cv (ClinVar) as test set
       filter(gnomadSet == 0,
              !var_id_genomic %in% non_h_gnomad_train$var_id_genomic)%>%
       filter(!var_id_prot %in% non_h_gnomad_train$var_id_prot,
              !var_id_genomic %in% non_h_gnomad_train$var_id_genomic)
     
-    h_cv_test<-variants_filtered %>% filter(gene %in% genes[genes$index==h,]$value) %>% #h = every gene with index = current h (if h=1 then 1); gnomadSet= 0 --> cv as test set
+    h_cv_test<-variants_filtered %>% filter(Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #h = every Uniprot_acc_split with index = current h (if h=1 then 1); gnomadSet= 0 --> cv as test set
       filter(gnomadSet == 0)%>%
       filter(!var_id_prot %in% non_h_gnomad_train$var_id_prot,
              !var_id_genomic %in% non_h_gnomad_train$var_id_genomic,
@@ -327,4 +321,5 @@ if (opt$write_model){
 }
 
 write_tsv(x=save_tibble, file=paste0(opt$prefix, "_results.tsv"))
+
 

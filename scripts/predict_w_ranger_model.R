@@ -24,6 +24,12 @@ opt = parse_args(OptionParser(option_list=option_list))
 to_AS_table<-read_tsv("resources/to_AS_table.txt")
 colnames(to_AS_table) <- paste(colnames(to_AS_table), "toAS", sep = "_")
 variants<-read_csv(opt$csv_location, na=c(".","NA", NA))
+
+# if variant file is empty, stop
+if (nrow(variants)==0){
+  system(paste("touch", opt$output_file))
+}else{
+
 model_to_use<-readRDS(opt$model_location)
 colnames_to_use<-readRDS(opt$use_cols_file)
 toAS_properties<-readRDS(opt$toAS_properties)
@@ -54,3 +60,5 @@ variants$AlphScore<-predict(model_to_use, variants)$predictions
 
 write_csv(x=variants,
           file=opt$output_file)
+
+}
