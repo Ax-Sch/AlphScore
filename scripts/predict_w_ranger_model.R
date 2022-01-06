@@ -5,7 +5,7 @@ library(ranger)
 set.seed(1)
 
 option_list = list(
-  make_option(c("-c", "--csv_location"), type="character", default="../extract_features/data/combine2_protein/P38398_w_AFfeatures.csv.gz", 
+  make_option(c("-c", "--csv_location"), type="character", default="data/combine2_protein/P38398_w_AFfeatures.csv.gz", 
               help="csv.gz file"),
   make_option(c("-m", "--model_location"), type="character", default="data/prediction/final_written_full_model.RData", 
               help="Excel file listing columns to use"),
@@ -14,7 +14,9 @@ option_list = list(
   make_option(c("-u", "--use_cols_file"), type="character", default="data/prediction/final_colnames_to_use.RData", 
               help="Excel file listing columns to use"),
   make_option(c("-t", "--toAS_properties"), type="character", default="data/prediction/final_toAS_properties.RData", 
-              help="Excel file listing columns to use")
+              help="Excel file listing columns to use"),
+  make_option(c("-r", "--reduced"), type="logical", default="FALSE", 
+              help="just save essential columns")
 )
 
 opt = parse_args(OptionParser(option_list=option_list))
@@ -58,7 +60,25 @@ variants<-variants[complete.cases(variants[,colnames_to_use]),]
 
 variants$AlphScore<-predict(model_to_use, variants)$predictions
 
+
+variants<-variants %>% 
+  mutate(in_train_ds=(((is.na(gnomAD_genomes_AC) | gnomAD_genomes_AC<2) & 
+                         gnomAD_exomes_AC==1 & 
+                         gnomAD_exomes_NFE_AC==1) & 
+                        (is.na(`1000Gp3_AC`) | `1000Gp3_AC`==0)  & 
+                        (is.na(ESP6500_AA_AC) | ESP6500_AA_AC==0) & 
+                        (is.na(ESP6500_EA_AC) | ESP6500_AA_AC==0)) |
+           gnomAD_exomes_AF>0.001 | 
+           gnomAD_genomes_AF> 0.001)%>%
+  mutate(in_clinvar_ds=!is.na(clinvar_clnsig) & clinvar_clnsig %in% c("Likely_pathogenic","Pathogenic","Benign", "Likely_benign") )
+
+
+if (opt$reduced==TRUE){
+variants<-variants %>% 
+  select(any_of(colnames(variants)[2:10]), CADD_raw, REVEL_score, DEOGEN2_score, 
+         b_factor, SOLVENT_ACCESSIBILITY_core, Uniprot_acc_split, in_train_ds, in_clinvar_ds, AlphScore)
+}
+
 write_csv(x=variants,
           file=opt$output_file)
-
 }

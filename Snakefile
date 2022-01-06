@@ -14,7 +14,7 @@ relevant_uniprot_ids=list(set(relevant_uniprot_ids)) # remove duplicates
 relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", sep="\t").astype(str)
-grid_search_table=grid_search_table.iloc[[0,1]] # testing
+#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 
 
 rule all:
@@ -24,8 +24,8 @@ rule all:
 		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
 		"data/train_testset1/gnomad_extracted.csv.gz",
 		#"data/merge_all/all_possible_values_concat.csv.gz",
-		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
-		"data/joined_grid/joined_grid.tsv",
+		#expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
+		#"data/joined_grid/joined_grid.tsv",
 		"data/prediction/final_written_full_model.RData",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
@@ -404,7 +404,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
-		--b_factor_param 60 \
+		--b_factor_param 75 \
 		--eta_param 0 \
 		--subsample_param 0 \
 		--min_child_weight_param 0 \
@@ -420,7 +420,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
-		--b_factor_param 60 \
+		--b_factor_param 75 \
 		--eta_param 0 \
 		--subsample_param 0 \
 		--min_child_weight_param 0 \
@@ -438,7 +438,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
-		--b_factor_param 60 \
+		--b_factor_param 75 \
 		--eta_param 0 \
 		--subsample_param 0 \
 		--min_child_weight_param 0 \
@@ -456,7 +456,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		--max_depth_param 6 \
 		--min_node_param 10 \
 		--cor_param 0.999999 \
-		--b_factor_param 60 \
+		--b_factor_param 75 \
 		--eta_param 0 \
 		--subsample_param 0 \
 		--min_child_weight_param 0 \
@@ -472,7 +472,7 @@ rule predict_Alphscore_protein_level:
 		to_AS="data/prediction/final_toAS_properties.RData",
 		colnames="data/prediction/final_colnames_to_use.RData",
 	output:
-		"data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz"
+		"data/predicted_prots/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
 	resources: cpus=1, time_job=60, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	params:
 		partition=config["short_partition"]
@@ -483,13 +483,14 @@ rule predict_Alphscore_protein_level:
 		--model_location {input.model} \
 		--output_file {output} \
 		--use_cols_file {input.colnames} \
-		--toAS_properties {input.to_AS}
+		--toAS_properties {input.to_AS} \
+		--reduced {wildcards.reduced}
 		"""
 
 rule create_validation_set_DMS:
 	input:
 		"resources/",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz",
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz",
 		 uniprot_id=["P01112","P04637","P05067",
 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
 	output:
@@ -538,7 +539,7 @@ rule combine_alphafold_w_existing_scores:
 
 rule combine_proteins_level_w_Alphscore_to_one_file:
 	input:
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore.csv.gz", uniprot_id=relevant_uniprot_ids)
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
 	output:
 		"data/merge_all/all_possible_values_concat.csv.gz"
 	params:
