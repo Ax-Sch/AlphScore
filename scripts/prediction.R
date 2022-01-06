@@ -238,8 +238,7 @@ if (opt$k_fold_cross_val == TRUE){
                                 h_cv_test_nrow=nrow(h_cv_test),
                                 glm_alpha=non_h_cv_model_glm$coefficients[2],
                                 glm_CADD=non_h_cv_model_glm$coefficients[3],
-                                condition=opt$prefix, 
-                                params=I(list(opt))))
+                                condition=opt$prefix ))
     
     
     plot_auc_CADD_non_h <- plot(roc(non_h_cv_test$outcome, non_h_cv_test$CADD_raw), print.auc = TRUE, col = "red")
