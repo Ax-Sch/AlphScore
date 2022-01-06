@@ -28,7 +28,7 @@ option_list = list(
               help="randomforest: min.node.size, xgboost: min node parameter, extratree: nodesize"),
   make_option(c("-r", "--cor_param"), type="double", default=0.999999, 
               help="Just keep columns that have a lower correlation than this value, general"),
-  make_option(c("-b", "--b_factor_param"), type="integer", default=90, 
+  make_option(c("-b", "--b_factor_param"), type="integer", default=20, 
               help="pLDDT value to filter positions that will be used to generate the average values of amino acids, general"),
   make_option(c("-d", "--min_child_weight_param"), type="integer", default=0, 
               help="min child weight, xgboost"),
@@ -66,6 +66,7 @@ toAS_properties<-variants  %>%
   filter(gnomadSet == 1, b_factor>opt$b_factor_param)%>%
   group_by(from_AS) %>%
   dplyr::select(all_of(sel_vars_to))%>%
+  filter(complete.cases(.))%>%
   summarize_all(mean)
 colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 
