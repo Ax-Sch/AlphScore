@@ -263,7 +263,7 @@ if (opt$k_fold_cross_val == TRUE){
 
 }else{
   train_dataset<-variants %>% 
-    filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
+    filter(train_ds)%>%
     dplyr::select(all_of(colnames_new), "outcome")
 
   gnomad_model_Alph<-fit_model(train_dataset)
@@ -272,7 +272,8 @@ if (opt$k_fold_cross_val == TRUE){
   variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colnames_new), "outcome"), gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
-    filter(clinvar_no_cv21to18_no_gnomad==TRUE)
+    filter(CVinterim_no21_18_no_gnomad==TRUE,
+           gnomadSet==FALSE)
   
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test==TRUE)
@@ -296,17 +297,16 @@ if (opt$k_fold_cross_val == TRUE){
          col=c("red", "blue"), lty=1, cex=0.8)
   title(main = "test set")
   
-  save_tibble <- rbind(save_tibble, 
-                       tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
-                              Alph_OOB=ifelse((opt$method_pred=="randomforest"), gnomad_model_Alph$prediction.error, NA),
+  save_tibble <- tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
+                              Alph_OOB=ifelse((opt$method_pred!="xgboost"), gnomad_model_Alph$prediction.error, NA),
                               auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
                               auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
-                              auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc, 
+                              auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc,
+                              auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
                               gnomad_train_nrow=nrow(train_dataset),
                               interim_nrow=nrow(interim_dataset),
                               test_nrow=nrow(test_dataset),
-                              condition=opt$prefix, 
-                              params=I(list(opt))))
+                              condition=opt$prefix )
   
   if (opt$write_dataset){
     write_csv(x=variants, file=paste0(opt$prefix,"_variants.csv.gz"))

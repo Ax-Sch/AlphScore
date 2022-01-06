@@ -14,7 +14,7 @@ relevant_uniprot_ids=list(set(relevant_uniprot_ids)) # remove duplicates
 relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", sep="\t").astype(str)
-#grid_search_table=grid_search_table.iloc[[0,1]] # testing
+grid_search_table=grid_search_table.iloc[[0,1]] # testing
 
 
 rule all:
@@ -23,7 +23,7 @@ rule all:
 		#expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=relevant_alphafold_models),
 		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
 		"data/train_testset1/gnomad_extracted.csv.gz",
-		"data/merge_all/all_possible_values_concat.csv.gz",
+		#"data/merge_all/all_possible_values_concat.csv.gz",
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 		"data/joined_grid/joined_grid.tsv",
 		"data/prediction/final_written_full_model.RData",
