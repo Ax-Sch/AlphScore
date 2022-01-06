@@ -90,6 +90,7 @@ n=length(colnames(dfr))
 correlationMatrix <- cor(dfr,use="complete.obs")
 
 set.seed(1)
+# prune correltated variables 
 cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
 colnames_new<-colnames(cols_removed)
 rm(variants_pred)

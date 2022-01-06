@@ -17,10 +17,14 @@ dir.create(dirname(opt$output))
 setwd(dirname(opt$output))
 
 
-variants_org %>% group_by(from_AS) %>%
+proportion_patho<-variants_org %>% 
+  filter(gnomadSet==TRUE)%>%
+  group_by(from_AS) %>%
   summarize(mean_outcome=mean(outcome), anz=sum(outcome))%>%
   arrange(mean_outcome)
+print(proportion_patho)
 
+PROP_PATHO_FACTOR=min(proportion_patho$mean_outcome)
 
 amino_acids<-unique(variants_org$from_AS)
 
@@ -39,10 +43,9 @@ for (amino_acid in amino_acids){
     filter(gnomadSet==FALSE)
   
   number_ben<-nrow(temp_benign)
-  number_patho<-nrow(temp_patho)
-  sample_number<-ifelse(number_patho>number_ben, number_ben,number_patho)
-  
-  new_temp_patho<-sample_n(temp_patho,sample_number, replace = FALSE)
+  number_patho_to_sample<-as.integer((PROP_PATHO_FACTOR/(1-PROP_PATHO_FACTOR))*number_ben)
+
+  new_temp_patho<-sample_n(temp_patho,number_patho_to_sample, replace = FALSE)
   
   new_variants<-rbind(new_variants, temp_benign, new_temp_patho, non_training_variants)
   

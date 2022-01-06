@@ -310,7 +310,7 @@ rule preprocess_clinvar_gnomad_set:
 	output:
 		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
 		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
-	resources: cpus=1, mem_mb=18000, time_job=480
+	resources: cpus=1, mem_mb=40000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
@@ -329,7 +329,7 @@ rule get_properties_clinvar_gnomad_set:
 		barplot_rec="data/plot_k/barplot_recalibrated.pdf",
 		AA_comb="data/plot_k/AA_ex_compared.pdf",
 		char_var="data/plot_k/characteristics_variants.tsv"
-	resources: cpus=1, mem_mb=18000, time_job=480
+	resources: cpus=1, mem_mb=40000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/plot_k/"
@@ -356,7 +356,7 @@ rule training_do_grid_search:
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 	output:
 		"data/prediction/{prefix}_results.tsv"
-	resources: cpus=6, mem_mb=24000, time_job=480
+	resources: cpus=6, mem_mb=40000, time_job=480
 	params:
 		partition=config["short_partition"]
 	run:
@@ -371,7 +371,7 @@ rule join_grid_search_files:
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 	output:
 		"data/joined_grid/joined_grid.tsv"
-	resources: cpus=1, mem_mb=18000, time_job=480
+	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
@@ -390,7 +390,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction/final_toAS_properties.RData",
 		"data/prediction/final_colnames_to_use.RData",
 		"data/prediction/pre_final_model_variants.csv.gz"
-	resources: cpus=8, mem_mb=30000, time_job=480
+	resources: cpus=8, mem_mb=40000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
@@ -526,7 +526,7 @@ rule combine_alphafold_w_existing_scores:
 		variant_dataset="data/prediction/pre_final_model_variants.csv.gz"
 	output:
 		one_plot="data/combine_scores/aucs.pdf",
-	resources: cpus=1, mem_mb=18000, time_job=480
+	resources: cpus=1, mem_mb=40000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/combine_scores/"
