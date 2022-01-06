@@ -36,7 +36,7 @@ option_list = list(
               help="gamma value, xgboost"),
   make_option(c("-o", "--out_folder"), type="character", default="data/prediction", 
               help="name of folder to store output"),
-  make_option(c("-w", "--write_dataset"), type="logical", default=TRUE, 
+  make_option(c("-w", "--write_dataset"), type="logical", default=FALSE, 
               help="Write predictions of test-dataset to file"),
   make_option(c("-f", "--full_model"), type="logical", default=FALSE, #data/preprocess/validation_set.csv.gzpreprocessed.csv.gz
               help="generate a full model"),
@@ -156,7 +156,7 @@ xgboost_predict<-function(dataset, modelx){
     predict(modelx, data_x) 
   )
 }
-xboost_save<-function(modelx, filename){
+xgboost_save<-function(modelx, filename){
   xgb.save(model=modelx, fname=filename)
 }
 
