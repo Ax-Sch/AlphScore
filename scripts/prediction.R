@@ -131,6 +131,12 @@ xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
   set.seed(1)
   train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome )
+  test_ds_tibble<-variants %>% 
+    filter(cv18_to_21_CV_test==TRUE) %>% 
+    dplyr::select(any_of(colnames(xtrain_dataset)))
+  test_ds<-xgb.DMatrix(data=as.matrix(test_ds_tibble %>% dplyr::select(-outcome)), label=test_ds_tibble$outcome)
+  watchlist=list(train=train_ds, test=test_ds)
+  
   params <- list(max_depth = opt$max_depth_param, 
                  subsample=opt$subsample_param, 
                  eta=opt$eta_param, 
@@ -140,7 +146,7 @@ xgboost_fit<-function(xtrain_dataset){
                  min_child_weight=opt$min_child_weight_param)
   model1<-xgb.train(
     data=train_ds,
-    #watchlist = watchlist,
+    watchlist = watchlist,
     params=params,
     nrounds = opt$num_trees_param,
     early_stopping_rounds = 10,
@@ -263,7 +269,7 @@ if (opt$k_fold_cross_val == TRUE){
   gnomad_model_Alph<-fit_model(train_dataset)
   
   train_dataset$predicted_Alph<-predict_model(train_dataset, gnomad_model_Alph)
-  variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph)
+  variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colnames_new), "outcome"), gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
     filter(clinvar_no_cv21to18_no_gnomad==TRUE)
