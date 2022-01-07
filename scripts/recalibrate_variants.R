@@ -6,7 +6,9 @@ option_list = list(
   make_option(c("-i", "--input"), type="character", default="data/train_testset1/gnomad_extracted_prepro.csv.gz", 
               help="csv.gz file"),
   make_option(c("-o", "--output"), type="character", default="data/preprocess/gnomad_extracted_prepro_rec.csv.gz", 
-              help="csv.gz file for output")
+              help="csv.gz file for output"),
+  make_option(c("-u", "--undersample"), type="logical", default="TRUE", 
+              help="Undersample to 50% - 50 % patho / benign")
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
@@ -24,7 +26,12 @@ proportion_patho<-variants_org %>%
   arrange(mean_outcome)
 print(proportion_patho)
 
-PROP_PATHO_FACTOR=min(proportion_patho$mean_outcome)
+# set the ratio patho / beningn
+if (opt$undersample){
+  PROP_PATHO_FACTOR=0.5
+}else{
+  PROP_PATHO_FACTOR=min(proportion_patho$mean_outcome)
+}
 
 amino_acids<-unique(variants_org$from_AS)
 

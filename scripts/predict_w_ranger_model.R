@@ -62,14 +62,18 @@ variants$AlphScore<-predict(model_to_use, variants)$predictions
 
 
 variants<-variants %>% 
-  mutate(in_train_ds=(((is.na(gnomAD_genomes_AC) | gnomAD_genomes_AC<2) & 
-                         gnomAD_exomes_AC==1 & 
-                         gnomAD_exomes_NFE_AC==1) & 
-                        (is.na(`1000Gp3_AC`) | `1000Gp3_AC`==0)  & 
-                        (is.na(ESP6500_AA_AC) | ESP6500_AA_AC==0) & 
-                        (is.na(ESP6500_EA_AC) | ESP6500_AA_AC==0)) |
-           gnomAD_exomes_AF>0.001 | 
-           gnomAD_genomes_AF> 0.001)%>%
+  mutate(in_train_ds=((is.na(gnomAD_exomes_AC) | (gnomAD_exomes_AC<2 & (gnomAD_exomes_NFE_AC == gnomAD_exomes_AC) ) )  & 
+                            gnomAD_genomes_AN>90000 &
+                            (!gnomAD_genomes_flag %in% c("lcr","segdup"))&
+                            gnomAD_genomes_AC==1 & 
+                            gnomAD_genomes_NFE_AC==1) & 
+           (is.na(`1000Gp3_AC`) | `1000Gp3_AC`==0)  & 
+           (is.na(ESP6500_AA_AC) | ESP6500_AA_AC==0) & 
+           (is.na(ESP6500_EA_AC) | ESP6500_AA_AC==0)  |
+           gnomAD_genomes_AF> 0.001 & 
+           gnomAD_genomes_AN>90000 & 
+           (!gnomAD_genomes_flag %in% c("lcr","segdup"))
+         )%>%
   mutate(in_clinvar_ds=!is.na(clinvar_clnsig) & clinvar_clnsig %in% c("Likely_pathogenic","Pathogenic","Benign", "Likely_benign") )
 
 

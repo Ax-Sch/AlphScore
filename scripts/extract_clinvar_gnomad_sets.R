@@ -13,7 +13,7 @@ values_joined<-lapply(files, function(x) { #  mc.cores = 1,
   training_data<-fread(x, na.strings = c("NA","."))[!is.na(CADD_raw_sur), ] # load data
   
   singletons <- training_data[
-    ((is.na(gnomAD_exomes_AC) | gnomAD_exomes_AC<2) & 
+    ((is.na(gnomAD_exomes_AC) | (gnomAD_exomes_AC<2 & (gnomAD_exomes_NFE_AC == gnomAD_exomes_AC) ) )  & 
     gnomAD_genomes_AN>90000 &
     (!gnomAD_genomes_flag %in% c("lcr","segdup"))&
     gnomAD_genomes_AC==1 & 
