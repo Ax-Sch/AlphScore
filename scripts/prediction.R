@@ -64,9 +64,9 @@ pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
 toAS_properties<-variants  %>%
   filter(gnomadSet == 1, b_factor>opt$b_factor_param)%>%
-  group_by(from_AS) %>%
-  dplyr::select(all_of(sel_vars_to))%>%
+  dplyr::select(all_of(sel_vars_to), from_AS)%>%
   filter(complete.cases(.))%>%
+  group_by(from_AS) %>%
   summarize_all(mean)
 colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 

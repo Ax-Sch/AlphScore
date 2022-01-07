@@ -1,7 +1,9 @@
 library(tidyverse)
 library(readxl)
 list_uniprot_ids<-read_tsv("resources/mapping_genename_uniprot.tsv")
-#sheets<-excel_sheets("Source.xlsx")
+
+PREDICTED_PROT_SUFFIX="_w_AlphScore_red_FALSE.csv.gz"
+
 sheets<-c("ADRB2","BRCA1","CALM1", "HRAS", "MAPK1", "P53",  "PTEN", "SUMO1", "TPK1", "TPMT", "UBE2I")
 scores_conc<-tibble()
 
@@ -70,11 +72,10 @@ scores_conc<-scores_conc %>%
 
 
 
-
 ##### combine vals
 library(data.table)
 
-files<-paste0("data/predicted_prots/", list_uniprot_ids$uniprot_id, "_w_AlphScore.csv.gz") 
+files<-paste0("data/predicted_prots/", list_uniprot_ids$uniprot_id, PREDICTED_PROT_SUFFIX) 
 
 values_joined<-lapply(files, function(x) { #  mc.cores = 1,
   return(fread(x, na.strings = c("NA","."))  ) } )

@@ -1,5 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
+testing=False
 
 import subprocess
 import os
@@ -14,7 +15,12 @@ relevant_uniprot_ids=list(set(relevant_uniprot_ids)) # remove duplicates
 relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", sep="\t").astype(str)
-#grid_search_table=grid_search_table.iloc[[0,1]] # testing
+
+
+if testing == True:
+	grid_search_table=grid_search_table.iloc[[0,1]] # testing
+	relevant_alphafold_models=relevant_alphafold_models[0:20]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:20]
 
 
 rule all:
@@ -24,8 +30,8 @@ rule all:
 		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
 		"data/train_testset1/gnomad_extracted.csv.gz",
 		#"data/merge_all/all_possible_values_concat.csv.gz",
-		#expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
-		#"data/joined_grid/joined_grid.tsv",
+		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
+		"data/joined_grid/joined_grid.tsv",
 		"data/prediction/final_written_full_model.RData",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
@@ -310,7 +316,7 @@ rule preprocess_clinvar_gnomad_set:
 	output:
 		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
 		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
-	resources: cpus=1, mem_mb=40000, time_job=480
+	resources: cpus=1, mem_mb=64000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
@@ -356,7 +362,7 @@ rule training_do_grid_search:
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 	output:
 		"data/prediction/{prefix}_results.tsv"
-	resources: cpus=6, mem_mb=40000, time_job=480
+	resources: cpus=8, mem_mb=48000, time_job=480
 	params:
 		partition=config["short_partition"]
 	run:
@@ -390,7 +396,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction/final_toAS_properties.RData",
 		"data/prediction/final_colnames_to_use.RData",
 		"data/prediction/pre_final_model_variants.csv.gz"
-	resources: cpus=8, mem_mb=40000, time_job=480
+	resources: cpus=16, mem_mb=80000, time_job=480
 	params:
 		partition=config["short_partition"]
 	shell:
@@ -509,7 +515,7 @@ rule analyse_performance_on_DMS_data:
 		test_dataset="data/prediction/pre_final_model_variants.csv.gz"
 	output:
 		one_plot="data/analyse_score/spearman_plot.pdf",
-	resources: cpus=1, mem_mb=18000, time_job=480
+	resources: cpus=1, mem_mb=30000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/analyse_score/"
