@@ -4,9 +4,9 @@ library(dplyr)
 library(optparse)
 
 option_list = list(
-  make_option(c("-t", "--tsv_location"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/local_files/SSH_final/Figures/pre_final_model_k_fold_results.tsv", 
+  make_option(c("-t", "--tsv_location"), type="character", default="../data/prediction/pre_final_model_k_fold_results.tsv", 
               help="location of .tsv file"),
-  make_option(c("-o", "--out_folder"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/local_files/SSH_final/Figures", 
+  make_option(c("-o", "--out_folder"), type="character", default="../data/prediction/plot_k/", 
               help="name of folder to store output")
 )
 
@@ -17,9 +17,11 @@ output_loop<-read.table(opt$tsv_location, sep="\t",header=TRUE)
 dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
 
+# rename?
 output_loop_num<-select_if(output_loop, is.numeric)
 
-output_loop_mean<-data.frame()
+
+#output_loop_mean<-data.frame()
 output_loop_mean<-output_loop %>%
   summarise_if(is.numeric,mean)%>%
   t()

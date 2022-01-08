@@ -274,7 +274,7 @@ if (opt$k_fold_cross_val == TRUE){
   
   interim_dataset<-variants %>% 
     filter(CVinterim_no21_18_no_gnomad==TRUE,
-           gnomadSet==FALSE)
+           gnomadSet == 0 )
   
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test==TRUE)

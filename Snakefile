@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=True
+testing=False
 
 import subprocess
 import os
@@ -19,7 +19,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
+	relevant_alphafold_models.sort()
 	relevant_alphafold_models=relevant_alphafold_models[0:20]
+	relevant_uniprot_ids.sort()
 	relevant_uniprot_ids=relevant_uniprot_ids[0:20]
 
 
@@ -38,6 +40,7 @@ rule all:
 		"data/plot_k/barplot_preprocessed.pdf",
 		"data/combine_scores/aucs.pdf",
 		"data/plot_k/pre_final_model_importance_permutation.pdf",
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -549,6 +552,7 @@ rule properties_score:
 		Rscript scripts/Fig_feat_imp.R \
 		--input_impurity {input.impurity} \
 		--input_permutation {input.permutation} \
+		--prefix pre_final_model \
 		--out_folder {params.out_folder} 
 
 		Rscript scripts/Fig_auc_cv.R \
