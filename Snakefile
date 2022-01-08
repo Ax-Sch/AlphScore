@@ -40,7 +40,8 @@ rule all:
 		"data/plot_k/barplot_preprocessed.pdf",
 		"data/combine_scores/aucs.pdf",
 		"data/plot_k/pre_final_model_importance_permutation.pdf",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
+		"data/clinvar2022/varlist_clinvar_2022.txt"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -558,4 +559,30 @@ rule properties_score:
 		Rscript scripts/Fig_auc_cv.R \
 		--tsv_location {input.tsv_location} \
 		--out_folder {params.out_folder} 
+		"""
+
+rule get_clinvar_2022_vars:
+	output:
+		"data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
+		"data/clinvar2022/clinvar_2022_benign.vcf.gz",
+		"data/clinvar2022/varlist_clinvar_2022.txt"
+	resources: cpus=1, mem_mb=5000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/clinvar2022/"
+	shell:
+		"""
+		mkdir -p {params.out_folder}
+		cd {params.out_folder}
+		
+		#get clinvar2022
+		wget https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar_20220103.vcf.gz
+		
+		# filter for benign / pathogenic missense variants
+		zcat clinvar_20220103.vcf.gz | grep "^#CHR" | sed "s/#//g" > header.txt
+		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Pathogenic|CLNSIG=Likely_pathogenic" | cat header.txt - | gzip > clinvar_2022_pathogenic.vcf.gz
+		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Benign|CLNSIG=Likely_benign" | cat header.txt - | gzip > clinvar_2022_benign.vcf.gz
+		
+		#create list of variants chrom pos id ref alt
+		zcat clinvar_2022_pathogenic.vcf.gz clinvar_2022_benign.vcf.gz | grep -v "^CHROM" | cut -f1-5 > varlist_clinvar_2022.txt
 		"""
