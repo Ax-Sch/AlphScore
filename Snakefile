@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=False
+testing=True
 
 import subprocess
 import os
@@ -18,7 +18,7 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 
 
 if testing == True:
-	grid_search_table=grid_search_table.iloc[[0,1]] # testing
+	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 	relevant_alphafold_models=relevant_alphafold_models[0:20]
 	relevant_uniprot_ids=relevant_uniprot_ids[0:20]
 
@@ -29,14 +29,15 @@ rule all:
 		#expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=relevant_alphafold_models),
 		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
 		"data/train_testset1/gnomad_extracted.csv.gz",
-		#"data/merge_all/all_possible_values_concat.csv.gz",
+		"data/merge_all/all_possible_values_concat.csv.gz",
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 		"data/joined_grid/joined_grid.tsv",
 		"data/prediction/final_written_full_model.RData",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
-		"data/combine_scores/aucs.pdf"
+		"data/combine_scores/aucs.pdf",
+		"data/plot_k/pre_final_model_importance_permutation.pdf",
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -390,86 +391,62 @@ rule join_grid_search_files:
 rule fit_models_w_final_settings_from_grid_search:
 	input:
 		excel="resources/available_colnames_W_surr.xlsx",
-		csv="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
+		csv="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+		grid_res="data/joined_grid/joined_grid.tsv"
 	output:
 		"data/prediction/final_written_full_model.RData",
 		"data/prediction/final_toAS_properties.RData",
 		"data/prediction/final_colnames_to_use.RData",
-		"data/prediction/pre_final_model_variants.csv.gz"
+		"data/prediction/pre_final_model_variants.csv.gz",
+		"data/prediction/pre_final_model_impurity_importance.tsv",
+		"data/prediction/pre_final_model_permutation_importance.tsv",
+		"data/prediction/pre_final_model_k_fold_results.tsv"
 	resources: cpus=16, mem_mb=80000, time_job=480
 	params:
 		partition=config["short_partition"]
-	shell:
-		"""
-		Rscript scripts/prediction.R \
-		--prefix pre_final_model_k_fold \
-		--csv_location {input.csv} \
-		--excel_location {input.excel} \
-		--method_pred extratree \
-		--num_trees_param 2000 \
-		--max_depth_param 6 \
-		--min_node_param 10 \
-		--cor_param 0.999999 \
-		--b_factor_param 75 \
-		--eta_param 0 \
-		--subsample_param 0 \
-		--min_child_weight_param 0 \
-		--gamma_param 0 \
-		--k_fold_cross_val TRUE
-
-		Rscript scripts/prediction.R \
-		--prefix pre_final_model \
-		--csv_location {input.csv} \
-		--excel_location {input.excel} \
-		--method_pred extratree \
-		--num_trees_param 2000 \
-		--max_depth_param 6 \
-		--min_node_param 10 \
-		--cor_param 0.999999 \
-		--b_factor_param 75 \
-		--eta_param 0 \
-		--subsample_param 0 \
-		--min_child_weight_param 0 \
-		--gamma_param 0 \
-		--write_model TRUE \
-		--write_dataset TRUE \
-		--importance impurity
+	run:
+		import pandas as pd
+		import os
 		
-		Rscript scripts/prediction.R \
-		--prefix pre_final_model \
-		--csv_location {input.csv} \
-		--excel_location {input.excel} \
-		--method_pred extratree \
-		--num_trees_param 2000 \
-		--max_depth_param 6 \
-		--min_node_param 10 \
-		--cor_param 0.999999 \
-		--b_factor_param 75 \
-		--eta_param 0 \
-		--subsample_param 0 \
-		--min_child_weight_param 0 \
-		--gamma_param 0 \
-		--write_model FALSE \
-		--write_dataset FALSE \
-		--importance permutation
+		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
+		grid_results=grid_results.sort_values("auc_Alph_interim_CV")
+		best_model=grid_results.iloc[-1]
+		
+		parameters=grid_search_table[grid_search_table["prefix"]==best_model.condition]
+		
+		print("Best model:")
+		print(best_model)
+		
+		base_command="Rscript scripts/prediction.R " + " --csv_location " + input[1] + " " + " ".join(parameters.iloc[0,1:].to_list())
+		
+		print("base command:")
+		print(base_command)
+		
+		pre_final_k_fold_com=base_command + ' --prefix pre_final_model_k_fold ' + '--k_fold_cross_val TRUE '
+		
+		pre_final_write_dataset_imp=base_command + ' --prefix pre_final_model ' + ' --write_model TRUE --write_dataset TRUE --importance impurity '
+		
+		pre_final_write_dataset_per=base_command + ' --prefix pre_final_model ' + ' --write_model FALSE --write_dataset FALSE --importance permutation '
+		
+		final_write_model=base_command + ' --prefix final ' + ' --full_model TRUE --write_model TRUE '
+		
+		print("run k-fold cross validation, command:")
+		os.system("echo " + pre_final_k_fold_com)
+		os.system(pre_final_k_fold_com)
+		
+		print("run pre final model importance, command:")
+		os.system("echo " + pre_final_write_dataset_imp)
+		os.system(pre_final_write_dataset_imp)
+		
+		print("run pre final model importance, command:")
+		os.system("echo " + pre_final_write_dataset_per)
+		os.system(pre_final_write_dataset_per)
+		
+		print("run final model, command:")
+		os.system("echo " + final_write_model)
+		os.system(final_write_model)
 
-		Rscript scripts/prediction.R \
-		--prefix final \
-		--csv_location {input.csv} \
-		--excel_location {input.excel} \
-		--method_pred extratree \
-		--num_trees_param 2000 \
-		--max_depth_param 6 \
-		--min_node_param 10 \
-		--cor_param 0.999999 \
-		--b_factor_param 75 \
-		--eta_param 0 \
-		--subsample_param 0 \
-		--min_child_weight_param 0 \
-		--gamma_param 0 \
-		--full_model TRUE \
-		--write_model TRUE
-		"""
+
 
 rule predict_Alphscore_protein_level:
 	input:
@@ -496,9 +473,7 @@ rule predict_Alphscore_protein_level:
 rule create_validation_set_DMS:
 	input:
 		"resources/",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz",
-		 uniprot_id=["P01112","P04637","P05067",
-		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz", uniprot_id=["P01112","P04637","P05067", 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
 	output:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
 	resources: cpus=1, mem_mb=18000, time_job=480
@@ -555,3 +530,28 @@ rule combine_proteins_level_w_Alphscore_to_one_file:
 	resources: time_job=4800, mem_mb=8000
 	shell:
 		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
+		
+rule properties_score:
+	input:
+		impurity="data/prediction/pre_final_model_impurity_importance.tsv",
+		permutation="data/prediction/pre_final_model_permutation_importance.tsv",
+		tsv_location="data/prediction/pre_final_model_k_fold_results.tsv"
+	output:
+		imp_impurity="data/plot_k/pre_final_model_importance_impurity.pdf",
+		imp_permutation="data/plot_k/pre_final_model_importance_permutation.pdf",
+		barplot_mean_auc_cv="data/plot_k/barplot_mean_auc_crossval.pdf"
+	resources: cpus=1, mem_mb=18000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/plot_k/"
+	shell:
+		"""
+		Rscript scripts/Fig_feat_imp.R \
+		--input_impurity {input.impurity} \
+		--input_permutation {input.permutation} \
+		--out_folder {params.out_folder} 
+
+		Rscript scripts/Fig_auc_cv.R \
+		--tsv_location {input.tsv_location} \
+		--out_folder {params.out_folder} 
+		"""

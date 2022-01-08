@@ -112,7 +112,8 @@ variants$DEOGEN2_score_med<-sapply(1:nrow(variants), function(x) { median_score(
 
 ### combine scores on interim dataset:
 interim_dataset<-variants %>% 
-  filter(gnomadSet==TRUE)
+  filter(filter(CVinterim_no21_18_no_gnomad==TRUE,
+                gnomadSet==FALSE))
 
 model_glm_AC <- glm(outcome ~ . , family=binomial(link='logit'),
                     data=interim_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
