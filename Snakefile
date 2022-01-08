@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=False
+testing=True
 
 import subprocess
 import os
@@ -413,7 +413,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		import os
 		
 		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
-		grid_results=grid_results.sort_values("auc_Alph_interim_CV")
+		grid_results=grid_results.sort_values("auc_Alph_test_CV")
 		best_model=grid_results.iloc[-1]
 		
 		parameters=grid_search_table[grid_search_table["prefix"]==best_model.condition]
