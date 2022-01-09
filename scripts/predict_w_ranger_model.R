@@ -79,8 +79,10 @@ variants<-variants %>%
 
 if (opt$reduced==TRUE){
 variants<-variants %>% 
-  select(any_of(colnames(variants)[2:10]), CADD_raw, REVEL_score, DEOGEN2_score, 
-         b_factor, SOLVENT_ACCESSIBILITY_core, Uniprot_acc_split, in_train_ds, in_clinvar_ds, AlphScore)
+  mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
+  select(any_of(colnames(variants)[2:10]), 
+         ID, genename, Uniprot_acc, Uniprot_acc_split, CADD_raw, REVEL_score, DEOGEN2_score, 
+         b_factor, SOLVENT_ACCESSIBILITY_core,  in_train_ds, in_clinvar_ds, AlphScore)
 }
 
 write_csv(x=variants,

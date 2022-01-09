@@ -39,15 +39,15 @@ new_variants<-data.frame()
 for (amino_acid in amino_acids){
   temp_patho<-variants_org %>% 
     filter(outcome==1, from_AS==amino_acid)%>%
-    filter(gnomadSet==TRUE)
+    filter(gnomadSet==1)
 
   temp_benign<-variants_org %>% 
     filter(outcome==0, from_AS==amino_acid) %>%
-    filter(gnomadSet==TRUE)
+    filter(gnomadSet==1)
 
   non_training_variants<-variants_org%>%
     filter(from_AS==amino_acid) %>%
-    filter(gnomadSet==FALSE)
+    filter(gnomadSet==0)
   
   number_ben<-nrow(temp_benign)
   number_patho_to_sample<-as.integer((PROP_PATHO_FACTOR/(1-PROP_PATHO_FACTOR))*number_ben)

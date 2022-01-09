@@ -9,8 +9,7 @@ option_list = list(
               help="location of csv.gz file with preprocessed, recalibrated variants"),
   make_option(c("-o", "--out_folder"), type="character", default="C:/Users/Karo.PC-Karo/Master/Semester_3/Lab_rotation_Ludwig/for_Karola/local_files", 
               help="name of folder to store output")
-
-  )
+)
 
 opt = parse_args(OptionParser(option_list=option_list))
 
@@ -20,20 +19,14 @@ variants_recal<-read_csv(opt$input_recalibrated, na=c(".","NA"))
 dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
 
-counts_pre<- variants_pre %>%
-  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
-  group_by(from_AS) %>%
-  count(from_AS)
-
 from_AS_pre<-variants_pre %>%
   filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
   group_by(from_AS) %>%
-  select(from_AS, outcome) %>%
-  summarise(frac=mean(outcome))
+  summarise(frac=mean(outcome), num=n())
 
 plot_pre<- ggplot(from_AS_pre,aes(x=reorder(from_AS, -frac), y=frac)) + 
   geom_bar(stat = "identity")+
-  geom_text(aes(x=reorder(from_AS, -frac), y=frac, label=counts_pre$n),
+  geom_text(aes(x=reorder(from_AS, -frac), y=frac, label=num),
             position = position_dodge(width = 1),
             vjust = -0.5, 
             size = 2.5, colour = "black", check_overlap = TRUE)+
@@ -46,23 +39,18 @@ order_AA_pre<- from_AS_pre[order(-from_AS_pre$frac),]
 order_AA_pre<-order_AA_pre$from_AS
 
 ####recalibrated
-counts_recal<- variants_recal %>%
-  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
-  group_by(from_AS) %>%
-  count(from_AS)
 
 from_AS_recal<-variants_recal %>% 
   filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
   group_by(from_AS) %>%
-  select(from_AS, outcome) %>%
-  summarise(frac=mean(outcome))
+  summarise(frac=mean(outcome), num=n())
 
 from_AS_recal<-from_AS_recal[match(order_AA_pre, from_AS_recal$from_AS),]
 from_AS_recal$from_AS<-factor(from_AS_recal$from_AS, levels=from_AS_recal$from_AS)
 
 plot_recal<-ggplot(from_AS_recal,aes(x=from_AS, y=frac)) + 
   geom_bar(stat = "identity")+
-  geom_text(aes(x=from_AS, y=frac, label=counts_recal$n),
+  geom_text(aes(x=from_AS, y=frac, label=num),
             position = position_dodge(width = 1),
             vjust = -0.5, 
             size = 2.5, colour = "black", check_overlap = TRUE)+

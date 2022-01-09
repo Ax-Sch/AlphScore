@@ -279,6 +279,11 @@ if (opt$k_fold_cross_val == TRUE){
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test==TRUE)
   
+  test_dataset_gnomad<-variants %>% 
+    filter(pure_cv18_to_21_gene==TRUE,
+           gnomadSet == 1) %>%
+    filter(!var_id_genomic %in% train_dataset$var_id_genomic)
+  
   roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "blue")
   legend(0.3, 0.3, legend=c("Alph"),
          col=c("blue"), lty=1, cex=0.8)
@@ -297,6 +302,14 @@ if (opt$k_fold_cross_val == TRUE){
   legend(0.3, 0.3, legend=c("CADD", "Alph"),
          col=c("red", "blue"), lty=1, cex=0.8)
   title(main = "test set")
+
+  roc_rose <- plot(roc(test_dataset_gnomad$outcome, test_dataset_gnomad$CADD_raw), print.auc = TRUE, col = "red")
+  roc_rose <- plot(roc(test_dataset_gnomad$outcome, test_dataset_gnomad$predicted_Alph), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .4, add = TRUE)
+  legend(0.3, 0.3, legend=c("CADD", "Alph"),
+         col=c("red", "blue"), lty=1, cex=0.8)
+  title(main = "test set genes, gnomad variants")
+  
   
   save_tibble <- tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
                               Alph_OOB=ifelse((opt$method_pred!="xgboost"), gnomad_model_Alph$prediction.error, NA),
@@ -304,9 +317,12 @@ if (opt$k_fold_cross_val == TRUE){
                               auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
                               auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc,
                               auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
+                              auc_CADD_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$CADD_raw)$auc, 
+                              auc_Alph_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$predicted_Alph)$auc, 
                               gnomad_train_nrow=nrow(train_dataset),
                               interim_nrow=nrow(interim_dataset),
                               test_nrow=nrow(test_dataset),
+                             test_gnomad_nrow=nrow(test_dataset_gnomad),
                               condition=opt$prefix )
   
   if (opt$write_dataset){

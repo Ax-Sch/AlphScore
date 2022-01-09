@@ -20,9 +20,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:20]
+	relevant_alphafold_models=relevant_alphafold_models[0:800]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:20]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
 
 
 rule all:
@@ -41,7 +41,8 @@ rule all:
 		"data/combine_scores/aucs.pdf",
 		"data/plot_k/pre_final_model_importance_permutation.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
-		"data/clinvar2022/varlist_clinvar_2022.txt"
+		"data/clinvar2022/varlist_clinvar_2022.txt",
+		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -327,7 +328,8 @@ rule preprocess_clinvar_gnomad_set:
 	shell:
 		"""
 		Rscript scripts/preprocess.R -i {input} -o {output.preprocessed}
-		Rscript scripts/recalibrate_variants.R -i {output.preprocessed} -o {output.recalibrated}
+		Rscript scripts/recalibrate_variants.R -i {output.preprocessed} -o {output.recalibrated} \
+		--undersample FALSE
 		"""
 
 rule get_properties_clinvar_gnomad_set:
@@ -413,7 +415,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		import os
 		
 		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
-		grid_results=grid_results.sort_values("auc_Alph_test_CV")
+		grid_results.sort_values(["auc_Alph_test_CV","auc_Alph_interim_CV"])
 		best_model=grid_results.iloc[-1]
 		
 		parameters=grid_search_table[grid_search_table["prefix"]==best_model.condition]
