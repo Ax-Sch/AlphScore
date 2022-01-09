@@ -47,7 +47,8 @@ sort(-check_count_proteins)[1:20]
 check_count_variants<-table(alphafold_pre_calculated_w_CV2022$ID) 
 sort(-check_count_variants)[1:20]
 
-roc_rose <- plot(roc(as.integer(alphafold_pre_calculated_w_CV2022$ClinVar2022_pathogenic), alphafold_pre_calculated_w_CV2022$AlphScore_rank), print.auc = TRUE, 
+
+roc_rose <- plot(roc(as.integer(alphafold_pre_calculated_w_CV2022$ClinVar2022_pathogenic), alphafold_pre_calculated_w_CV2022$AlphScore), print.auc = TRUE, 
                  col = "black", print.auc.y = .4)
 roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022$ClinVar2022_pathogenic, alphafold_pre_calculated_w_CV2022$REVEL_score), print.auc = TRUE, 
                  col = "blue", print.auc.y = .2, add = TRUE)
@@ -58,11 +59,5 @@ roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022$ClinVar2022_pathogenic, a
 ggplot(alphafold_pre_calculated_w_CV2022)+
   geom_histogram(aes(x=AlphScore, color=ClinVar2022_pathogenic))
 
-
-ids_high_alphScore<-(alphafold_pre_calculated_w_CV2022 %>% filter(AlphScore>0.7))$ID
-
-critical_clinvar<-rbind(clinvar_benign, clinvar_pathogenic) %>% 
-  filter(ID %in% ids_high_alphScore)%>%
-  left_join(alphafold_pre_calculated_w_CV2022, by="ID")
 
       

@@ -20,9 +20,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:800]
+	relevant_alphafold_models=relevant_alphafold_models[0:1600]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:1600]
 
 
 rule all:
@@ -524,18 +524,7 @@ rule combine_alphafold_w_existing_scores:
 		--out_folder {params.out_folder}
 		"""
 
-rule combine_proteins_level_w_Alphscore_to_one_file:
-	input:
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
-	output:
-		"data/merge_all/all_possible_values_concat.csv.gz"
-	params:
-		partition=config["long_partition"],
-		in_folder="data/predicted_prots/",
-		out_folder="data/merge_all/"
-	resources: time_job=4800, mem_mb=8000
-	shell:
-		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
+
 		
 rule properties_score:
 	input:
@@ -563,17 +552,36 @@ rule properties_score:
 		--out_folder {params.out_folder} 
 		"""
 
+
+rule combine_proteins_level_w_Alphscore_to_one_file:
+	input:
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
+	output:
+		"data/merge_all/all_possible_values_concat.csv.gz",
+		"data/merge_all/header.txt",
+	params:
+		partition=config["long_partition"],
+		in_folder="data/predicted_prots/",
+		out_folder="data/merge_all/"
+	resources: time_job=4800, mem_mb=8000
+	shell:
+		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
+
 rule get_clinvar_2022_vars:
+	input:
+		"data/merge_all/all_possible_values_concat.csv.gz"
 	output:
 		"data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		"data/clinvar2022/clinvar_2022_benign.vcf.gz",
-		"data/clinvar2022/varlist_clinvar_2022.txt"
+		"data/clinvar2022/varlist_clinvar_2022.txt",
+		"data/clinvar2022/values_of_clinvar_variants.tsv.gz"
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/clinvar2022/"
 	shell:
 		"""
+		old_wd=$(pwd)
 		mkdir -p {params.out_folder}
 		cd {params.out_folder}
 		
@@ -585,6 +593,7 @@ rule get_clinvar_2022_vars:
 		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Pathogenic|CLNSIG=Likely_pathogenic" | cat header.txt - | gzip > clinvar_2022_pathogenic.vcf.gz
 		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Benign|CLNSIG=Likely_benign" | cat header.txt - | gzip > clinvar_2022_benign.vcf.gz
 		
-		#create list of variants chrom pos id ref alt
-		zcat clinvar_2022_pathogenic.vcf.gz clinvar_2022_benign.vcf.gz | grep -v "^CHROM" | cut -f1-5 > varlist_clinvar_2022.txt
+		# extract predicted scores of ClinVar Variants
+		zcat clinvar_2022_pathogenic.vcf.gz clinvar_2022_benign.vcf.gz | grep -v "^CHROM" | awk '{print $1, $2 }'  > varlist_clinvar_2022.txt
+		tabix $old_wd"/"{input} -R varlist_clinvar_2022.txt | gzip > clinvar_variants_predicted.tsv.gz
 		"""

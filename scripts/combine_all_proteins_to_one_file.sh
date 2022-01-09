@@ -9,7 +9,7 @@ echo "using header of: $first_file"
 
 mkdir -p $out_dir
 mkdir -p $out_dir"/tmp"
-zcat $first_file | head -n1 > $out_dir"/tmp/header.csv"
+zcat $first_file | head -n1 > $out_dir"/header.csv"
 zcat_sting=""
 
 # loop over directory content and extract collect non empty files with TRUE in filename 
@@ -29,12 +29,15 @@ done
 
 echo $zcat_string
 
-cat $out_dir"/tmp/header.csv" > $out_dir"/tmp/header_short.csv"
+cat $out_dir"/header.csv" > $out_dir"/header_short.csv"
 
-zcat $zcat_string  | grep -v "chr,pos(1-based)," | sort -t, -T $out_dir"/tmp/" -k2,2 -k3,3n - | \
-cat $out_dir"/tmp/header_short.csv" - | bgzip -c > $out_dir"/all_possible_values_concat.csv.gz"
+zcat $zcat_string  | grep -v "chr,pos(1-based)," | sort -V -t, -T $out_dir"/tmp/" -k1 -k2 - | \
+cat $out_dir"/header_short.csv" - | tr "," "\t" | bgzip -c > $out_dir"/all_possible_values_concat.csv.gz"
 
+tabix -s 1 -b 2 -e 2 $out_dir"/all_possible_values_concat.csv.gz"
 
-#zcat $zcat_string | grep -v "chr,pos(1-based),ref,alt,aaref,aaalt," | sort -t, -T $out_dir"/tmp/" -k2,2 -k3,3n - | cat $out_dir"/tmp/header.csv" - | bgzip -c > $out_dir"/all_possible_values_concat.csv.gz"
+rm -rf $out_dir"/tmp"
+
+#zcat $zcat_string | grep -v "chr,pos(1-based),ref,alt,aaref,aaalt," | sort -t, -T $out_dir"/tmp/" -k2,2 -k3,3n - | cat $out_dir"/header.csv" - | bgzip -c > $out_dir"/all_possible_values_concat.csv.gz"
 
 
