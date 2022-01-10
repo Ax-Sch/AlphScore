@@ -57,4 +57,7 @@ plot_recal<-ggplot(from_AS_recal,aes(x=from_AS, y=frac)) +
   theme_minimal()+
   labs(x="reference AA",y="proportion of proxy-pathogenic AAs")
 
+# get stats of training / testing data set:
+
+
 ggsave("barplot_recalibrated.pdf", width=200, height=100, units="mm", dpi=300)

@@ -6,7 +6,7 @@ library(optparse)
 set.seed(1)
 
 option_list = list(
-  make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz", 
+  make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/git_version/AlphScore/data/train_testset1/gnomad_extracted_prepro_rec.csv.gz", 
               help="csv.gz file"),
   make_option(c("-e", "--excel_location"), type="character", default="resources/available_colnames_W_surr.xlsx", 
               help="Excel file listing columns to use"),
@@ -253,36 +253,47 @@ if (opt$k_fold_cross_val == TRUE){
   }
   
 }else if (opt$full_model==TRUE){
-  var_full_model<-variants[,colnames_new] 
-  var_full_model<-var_full_model[complete.cases(var_full_model),]
+  var_full_model<-variants %>% 
+    filter(gnomadSet==1)%>%
+    dplyr::select(all_of(colnames_new), "outcome") 
+
   gnomad_model_Alph<-fit_model(var_full_model)
   var_full_model$predicted_Alph<-predict_model(var_full_model, gnomad_model_Alph)
+  variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph)
+  
+  interim_dataset<-variants %>% 
+    filter(CVinterim_no21_18_no_gnomad)
   
   save_tibble <- tibble(auc_Alph_train_gnomAD=roc(var_full_model$outcome, var_full_model$predicted_Alph)$auc,
-                          Alph_OOB=ifelse((opt$method_pred %in% c("randomforest","extratree")), gnomad_model_Alph$prediction.error, NA),
-                          gnomad_train_nrow=nrow(var_full_model))
-
+                        Alph_OOB=ifelse((opt$method_pred %in% c("randomforest","extratree")), gnomad_model_Alph$prediction.error, NA),
+                        gnomad_train_nrow=nrow(var_full_model),
+                        gnomad_train_nProteins=train_dataset<-length(unique((variants %>% filter(gnomadSet==1))$Uniprot_acc_split)),
+                        auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
+                        auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
+                        interim_nrow=nrow(interim_dataset),
+                        interim_nProteins=length(unique(interim_dataset$Uniprot_acc_split))
+                        )
+  
 }else{
   train_dataset<-variants %>% 
     filter(train_ds)%>%
     dplyr::select(all_of(colnames_new), "outcome")
-
+  
   gnomad_model_Alph<-fit_model(train_dataset)
   
   train_dataset$predicted_Alph<-predict_model(train_dataset, gnomad_model_Alph)
   variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colnames_new), "outcome"), gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
-    filter(CVinterim_no21_18_no_gnomad==TRUE,
-           gnomadSet == 0 )
+    filter(CVinterim_no21_18_no_gnomad)
   
   test_dataset<-variants %>% 
-    filter(cv18_to_21_CV_test==TRUE)
+    filter(cv18_to_21_CV_test)
   
+  var_ids_train<- train_dataset<-(variants %>% filter(train_ds))$var_id_genomic
   test_dataset_gnomad<-variants %>% 
-    filter(pure_cv18_to_21_gene==TRUE,
-           gnomadSet == 1) %>%
-    filter(!var_id_genomic %in% train_dataset$var_id_genomic)
+    filter(pure_cv18_to_21_gene, gnomadSet == 1) %>%
+    filter(!var_id_genomic %in% var_ids_train)
   
   roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "blue")
   legend(0.3, 0.3, legend=c("Alph"),
@@ -302,7 +313,7 @@ if (opt$k_fold_cross_val == TRUE){
   legend(0.3, 0.3, legend=c("CADD", "Alph"),
          col=c("red", "blue"), lty=1, cex=0.8)
   title(main = "test set")
-
+  
   roc_rose <- plot(roc(test_dataset_gnomad$outcome, test_dataset_gnomad$CADD_raw), print.auc = TRUE, col = "red")
   roc_rose <- plot(roc(test_dataset_gnomad$outcome, test_dataset_gnomad$predicted_Alph), print.auc = TRUE, 
                    col = "blue", print.auc.y = .4, add = TRUE)
@@ -312,18 +323,23 @@ if (opt$k_fold_cross_val == TRUE){
   
   
   save_tibble <- tibble(auc_Alph_train_gnomAD=roc(train_dataset$outcome, train_dataset$predicted_Alph)$auc, 
-                              Alph_OOB=ifelse((opt$method_pred!="xgboost"), gnomad_model_Alph$prediction.error, NA),
-                              auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
-                              auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
-                              auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc,
-                              auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
-                              auc_CADD_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$CADD_raw)$auc, 
-                              auc_Alph_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$predicted_Alph)$auc, 
-                              gnomad_train_nrow=nrow(train_dataset),
-                              interim_nrow=nrow(interim_dataset),
-                              test_nrow=nrow(test_dataset),
-                             test_gnomad_nrow=nrow(test_dataset_gnomad),
-                              condition=opt$prefix )
+                        Alph_OOB=ifelse((opt$method_pred!="xgboost"), gnomad_model_Alph$prediction.error, NA),
+                        auc_CADD_interim_CV=roc(interim_dataset$outcome, interim_dataset$CADD_raw)$auc, 
+                        auc_Alph_interim_CV=roc(interim_dataset$outcome, interim_dataset$predicted_Alph)$auc,
+                        auc_CADD_test_CV=roc(test_dataset$outcome, test_dataset$CADD_raw)$auc,
+                        auc_Alph_test_CV=roc(test_dataset$outcome, test_dataset$predicted_Alph)$auc, 
+                        auc_CADD_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$CADD_raw)$auc, 
+                        auc_Alph_test_gnomad=roc(test_dataset_gnomad$outcome, test_dataset_gnomad$predicted_Alph)$auc, 
+                        gnomad_train_nrow=nrow(train_dataset),
+                        interim_nrow=nrow(interim_dataset),
+                        test_nrow=nrow(test_dataset),
+                        test_gnomad_nrow=nrow(test_dataset_gnomad),
+                        gnomad_train_nProteins=train_dataset<-length(unique((variants %>% 
+                                                                               filter(train_ds))$Uniprot_acc_split)),
+                        interim_nProteins=length(unique(interim_dataset$Uniprot_acc_split)),
+                        test_nProteins=length(unique(test_dataset$Uniprot_acc_split)),
+                        test_gnomad_nProteins=length(unique(test_dataset_gnomad$Uniprot_acc_split)),
+                        condition=opt$prefix )
   
   if (opt$write_dataset){
     write_csv(x=variants, file=paste0(opt$prefix,"_variants.csv.gz"))
@@ -334,7 +350,7 @@ if (opt$method_pred %in% c("randomforest", "extratree")){
   var_imp<-tibble(importance=as.vector(gnomad_model_Alph$variable.importance), 
                   variable=names(gnomad_model_Alph$variable.importance))
   write_tsv(x=var_imp,
-      file = paste0(opt$prefix,"_", opt$importance, "_importance.tsv"))
+            file = paste0(opt$prefix,"_", opt$importance, "_importance.tsv"))
 }
 
 if (opt$write_model){

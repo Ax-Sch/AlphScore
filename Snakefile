@@ -20,9 +20,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:1600]
+	relevant_alphafold_models=relevant_alphafold_models[0:800]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:1600]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
 
 
 rule all:
@@ -462,7 +462,7 @@ rule predict_Alphscore_protein_level:
 		colnames="data/prediction/final_colnames_to_use.RData",
 	output:
 		"data/predicted_prots/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
-	resources: cpus=1, time_job=60, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
+	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	params:
 		partition=config["short_partition"]
 	shell:
