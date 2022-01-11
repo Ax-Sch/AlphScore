@@ -27,12 +27,12 @@ variants<-setTrainTestSet(variants, 1)
 
 # check for overlaps
 gnomad_train<-variants %>% filter(gnomad_train)
-clinvar_holdout_test<-variants %>% filter(clinvar_holdout_test)
 clinvar_interim_test<-variants %>% filter(clinvar_interim_test)
+clinvar_holdout_test<-variants %>% filter(clinvar_holdout_test)
 
-venn.diagram(x=list(gnomad_train$Uniprot_acc_split, clinvar_holdout_test$Uniprot_acc_split, clinvar_interim_test$Uniprot_acc_split),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Protein_id_level.png')
-venn.diagram(x=list(gnomad_train$var_id_prot, clinvar_holdout_test$var_id_prot, clinvar_interim_test$var_id_prot),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Protein_variant_id_level.png')
-venn.diagram(x=list(gnomad_train$var_id_genomic, clinvar_holdout_test$var_id_genomic, clinvar_interim_test$var_id_genomic),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Variant_id_level.png')
+venn.diagram(x=list(gnomad_train$Uniprot_acc_split, clinvar_interim_test$Uniprot_acc_split, clinvar_holdout_test$Uniprot_acc_split),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Protein_id_level.png')
+venn.diagram(x=list(gnomad_train$var_id_prot, clinvar_interim_test$var_id_prot, clinvar_holdout_test$var_id_prot),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Protein_variant_id_level.png')
+venn.diagram(x=list(gnomad_train$var_id_genomic, clinvar_interim_test$var_id_genomic, clinvar_holdout_test$var_id_genomic),category.names = c("gnomAD train" , "ClinVar interim", "ClinVar hold out"), filename = 'Variant_id_level.png')
 
 # check for duplicates
 n_occur <- data.frame(table(paste(variants$var_id_genomic, variants$gnomadSet)))

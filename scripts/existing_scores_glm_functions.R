@@ -117,20 +117,21 @@ setTrainTestSet<-function(variants_par, k_fold_num){
     select(var_id_genomic, var_id_prot)
   
   variants_out<-variants_out %>%
-    mutate(clinvar_holdout_test = train_genes &
+    mutate(clinvar_interim_test = train_genes &
           (gnomadSet==0) & 
           !(var_id_prot %in% train_var_ids$var_id_prot) &
           !(var_id_genomic %in% train_var_ids$var_id_genomic) )
 
+  
   interim_var_ids<-variants_out %>% 
-    filter(clinvar_holdout_test)%>%
+    filter(clinvar_interim_test)%>%
     select(var_id_genomic, var_id_prot)
   
   train_and_interim_ids<-rbind(train_var_ids,
                                interim_var_ids)
   
   variants_out<-variants_out %>%
-    mutate(clinvar_interim_test = hold_out_genes &
+    mutate(clinvar_holdout_test = hold_out_genes &
              (gnomadSet==0) & 
              !(var_id_prot %in% train_and_interim_ids$var_id_prot) &
              !(var_id_genomic %in% train_and_interim_ids$var_id_genomic) )

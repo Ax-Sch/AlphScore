@@ -39,7 +39,7 @@ rule all:
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
 		"data/combine_scores/aucs.pdf",
-		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
+		"data/plot_k/final_regular_importance_permutation.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
@@ -407,9 +407,9 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction_final/final{FeatureSetToTake}_written_full_model.RData",
 		"data/prediction_final/final{FeatureSetToTake}_toAS_properties.RData",
 		"data/prediction_final/final{FeatureSetToTake}_colnames_to_use.RData",
+		"data/prediction_final/final{FeatureSetToTake}_impurity_importance.tsv",
+		"data/prediction_final/final{FeatureSetToTake}_permutation_importance.tsv",
 		"data/prediction_final/pre_final_model{FeatureSetToTake}_variants.csv.gz",
-		"data/prediction_final/pre_final_model{FeatureSetToTake}_impurity_importance.tsv",
-		"data/prediction_final/pre_final_model{FeatureSetToTake}_permutation_importance.tsv",
 		"data/prediction_final/pre_final_model_k_fold{FeatureSetToTake}_results.tsv"
 	resources: cpus=16, mem_mb=80000, time_job=480
 	params:
@@ -441,7 +441,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		
 		pre_final_write_dataset_imp=base_command + ' --prefix pre_final_model' + wildcards[0] +' --write_model TRUE --write_dataset TRUE --importance impurity '
 		
-		pre_final_write_dataset_per=base_command + ' --prefix pre_final_model' + wildcards[0] +' --write_model FALSE --write_dataset FALSE --importance permutation '
+		final_permutation=base_command + ' --prefix final' + wildcards[0] +' --full_model TRUE --importance permutation '
 		
 		final_write_model=base_command + ' --prefix final' + wildcards[0] + ' --full_model TRUE --write_model TRUE '
 		
@@ -453,9 +453,9 @@ rule fit_models_w_final_settings_from_grid_search:
 		os.system("echo " + pre_final_write_dataset_imp)
 		os.system(pre_final_write_dataset_imp)
 		
-		print("run pre final model importance, command:")
-		os.system("echo " + pre_final_write_dataset_per)
-		os.system(pre_final_write_dataset_per)
+		print("run final model importance, command:")
+		os.system("echo " + final_permutation)
+		os.system(final_permutation)
 		
 		print("run final model, command:")
 		os.system("echo " + final_write_model)
@@ -544,12 +544,12 @@ rule combine_alphafold_w_existing_scores:
 		
 rule properties_score:
 	input:
-		impurity="data/prediction_final/pre_final_model_regular_impurity_importance.tsv",
-		permutation="data/prediction_final/pre_final_model_regular_permutation_importance.tsv",
+		impurity="data/prediction_final/final_regular_impurity_importance.tsv",
+		permutation="data/prediction_final/final_regular_permutation_importance.tsv",
 		tsv_location="data/prediction_final/pre_final_model_k_fold_regular_results.tsv"
 	output:
-		imp_impurity="data/plot_k/pre_final_model_regular_importance_impurity.pdf",
-		imp_permutation="data/plot_k/pre_final_model_regular_importance_permutation.pdf",
+		imp_impurity="data/plot_k/final_regular_importance_impurity.pdf",
+		imp_permutation="data/plot_k/final_regular_importance_permutation.pdf",
 		barplot_mean_auc_cv="data/plot_k/barplot_mean_auc_crossval.pdf"
 	resources: cpus=1, mem_mb=18000, time_job=480
 	params:
@@ -560,7 +560,7 @@ rule properties_score:
 		Rscript scripts/Fig_feat_imp.R \
 		--input_impurity {input.impurity} \
 		--input_permutation {input.permutation} \
-		--prefix pre_final_model_regular \
+		--prefix final_regular \
 		--out_folder {params.out_folder} 
 
 		Rscript scripts/Fig_auc_cv.R \
