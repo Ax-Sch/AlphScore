@@ -1,0 +1,84 @@
+# file with functions related to external prediction scores, to be sourced
+
+# function to find the elements in the semicolon separated lists of dbNSFP that correspond to the Alphafold derived score val1;val2;val3
+get_index_col<-function(variant_dataset){
+  variant_dataset$Uniprot_acc_list<-variant_dataset$Uniprot_acc %>% str_split(";")
+  variant_dataset$HGVSp_VEP_list<-variant_dataset$HGVSp_VEP %>% str_split(";")
+  
+  variant_dataset$pos_in_Uniprot<-sapply(1:nrow(variant_dataset), function(x) { (variant_dataset$Uniprot_acc_list[[x]] == variant_dataset$Uniprot_acc_split[x])})
+  variant_dataset$pos_in_VEP<-sapply(1:nrow(variant_dataset), function(x) { (variant_dataset$HGVSp_VEP_list[[x]] == variant_dataset$HGVSp_VEP_split[x])})
+  variant_dataset$pos_in_VEP_and_Uniprot<-sapply(1:nrow(variant_dataset), function(x) {(variant_dataset$pos_in_Uniprot[[x]] & variant_dataset$pos_in_VEP[[x]])})
+  
+  return(variant_dataset$pos_in_VEP_and_Uniprot)
+}
+
+
+# function to retrieve the score that is stored at the positions that corresponds to the Alphafold score
+unlist_score<-function(score_col, index_col){
+  score_col_split<-str_split(score_col, ";")
+  score_splitted<-sapply(1:length(index_col), function(x) {mean(as.numeric(score_col_split[[x]][index_col[[x]]]), na.rm=TRUE )})
+  
+  return(score_splitted)
+}
+
+# Fit multiple GLM models that contain different score-combinations
+fit_set_of_models<-function(prefiltered_trainingdataset){
+  glm_AlphCadd <- glm(outcome ~ . , family=binomial(link='logit'),
+                      data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, CADD_raw) %>%
+                        filter(complete.cases(.)))
+  
+  glm_AlphRevel <- glm(outcome ~ . , family=binomial(link='logit'),
+                       data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, REVEL_score) %>%
+                         filter(complete.cases(.)))
+  
+  glm_RevelCadd <- glm(outcome ~ . , family=binomial(link='logit'),
+                       data=prefiltered_trainingdataset %>% dplyr::select(outcome, CADD_raw, REVEL_score) %>%
+                         filter(complete.cases(.)))
+  
+  glm_AlphRevelCadd <- glm(outcome ~ . , family=binomial(link='logit'),
+                           data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, CADD_raw, REVEL_score) %>%
+                             filter(complete.cases(.)))
+  
+  glm_AlphDeogen <- glm(outcome ~ . , family=binomial(link='logit'),
+                        data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, DEOGEN2_score_med) %>%
+                          filter(complete.cases(.)))
+  
+  glm_CaddDeogen<- glm(outcome ~ . , family=binomial(link='logit'),
+                       data=prefiltered_trainingdataset %>% dplyr::select(outcome, CADD_raw, DEOGEN2_score_med) %>%
+                         filter(complete.cases(.)))
+  
+  glm_DeogenRevel <- glm(outcome ~ . , family=binomial(link='logit'),
+                         data=prefiltered_trainingdataset %>% dplyr::select(outcome, REVEL_score, DEOGEN2_score_med) %>%
+                           filter(complete.cases(.)))
+  
+  glm_AlphDeogenRevel <- glm(outcome ~ . , family=binomial(link='logit'),
+                             data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, REVEL_score, DEOGEN2_score_med) %>%
+                               filter(complete.cases(.)))
+  
+  glm_AlphCaddDeogen <- glm(outcome ~ . , family=binomial(link='logit'),
+                            data=prefiltered_trainingdataset %>% dplyr::select(outcome, AlphScore, CADD_raw, DEOGEN2_score_med) %>%
+                              filter(complete.cases(.)))
+  
+  glm_CaddDeogenRevel <- glm(outcome ~ . , family=binomial(link='logit'),
+                             data=prefiltered_trainingdataset %>% dplyr::select(outcome, CADD_raw, DEOGEN2_score_med, REVEL_score) %>%
+                               filter(complete.cases(.)))
+  
+  
+  return(list(
+    list(glm_AlphCadd, glm_AlphRevel, glm_RevelCadd, glm_AlphRevelCadd, glm_AlphDeogen, 
+         glm_CaddDeogen, glm_DeogenRevel, glm_AlphDeogenRevel, glm_AlphCaddDeogen, glm_CaddDeogenRevel),
+    
+    list("glm_AlphCadd", "glm_AlphRevel", "glm_RevelCadd", "glm_AlphRevelCadd", "glm_AlphDeogen", 
+         "glm_CaddDeogen", "glm_DeogenRevel", "glm_AlphDeogenRevel", "glm_AlphCaddDeogen", "glm_CaddDeogenRevel")) 
+  )
+}
+
+# predict a set of glm models
+predict_set_of_models<-function(set_of_models, variants_to_predict){
+  # set_of_models[[1]] = models, set_of_models[[2]] = names of models
+  for (i in 1:length(set_of_models[[2]])){
+    variants_to_predict[,set_of_models[[2]][[i]] ]<-predict(set_of_models[[1]][[i]], variants_to_predict)
+  }
+  return(variants_to_predict)
+}
+

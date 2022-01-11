@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=True
+testing=False
 
 import subprocess
 import os
@@ -20,9 +20,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:800]
+	relevant_alphafold_models=relevant_alphafold_models[0:2400]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:2400]
 
 
 rule all:
@@ -41,7 +41,7 @@ rule all:
 		"data/combine_scores/aucs.pdf",
 		"data/plot_k/pre_final_model_importance_permutation.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
-		"data/clinvar2022/varlist_clinvar_2022.txt",
+		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 
 
@@ -558,7 +558,7 @@ rule combine_proteins_level_w_Alphscore_to_one_file:
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
 	output:
 		"data/merge_all/all_possible_values_concat.csv.gz",
-		"data/merge_all/header.txt",
+		"data/merge_all/header.csv",
 	params:
 		partition=config["long_partition"],
 		in_folder="data/predicted_prots/",
@@ -573,7 +573,6 @@ rule get_clinvar_2022_vars:
 	output:
 		"data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		"data/clinvar2022/clinvar_2022_benign.vcf.gz",
-		"data/clinvar2022/varlist_clinvar_2022.txt",
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz"
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
@@ -586,14 +585,14 @@ rule get_clinvar_2022_vars:
 		cd {params.out_folder}
 		
 		#get clinvar2022
-		wget https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar_20220103.vcf.gz
+		wget https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar_20220109.vcf.gz
 		
 		# filter for benign / pathogenic missense variants
-		zcat clinvar_20220103.vcf.gz | grep "^#CHR" | sed "s/#//g" > header.txt
-		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Pathogenic|CLNSIG=Likely_pathogenic" | cat header.txt - | gzip > clinvar_2022_pathogenic.vcf.gz
-		zcat clinvar_20220103.vcf.gz | grep missense_variant | egrep "CLNSIG=Benign|CLNSIG=Likely_benign" | cat header.txt - | gzip > clinvar_2022_benign.vcf.gz
+		zcat clinvar_20220109.vcf.gz | grep "^#CHR" | sed "s/#//g" > header.txt
+		zcat clinvar_20220109.vcf.gz | grep missense_variant | egrep "CLNSIG=Pathogenic|CLNSIG=Likely_pathogenic" | cat header.txt - | gzip > clinvar_2022_pathogenic.vcf.gz
+		zcat clinvar_20220109.vcf.gz | grep missense_variant | egrep "CLNSIG=Benign|CLNSIG=Likely_benign" | cat header.txt - | gzip > clinvar_2022_benign.vcf.gz
 		
-		# extract predicted scores of ClinVar Variants
-		zcat clinvar_2022_pathogenic.vcf.gz clinvar_2022_benign.vcf.gz | grep -v "^CHROM" | awk '{print $1, $2 }'  > varlist_clinvar_2022.txt
-		tabix $old_wd"/"{input} -R varlist_clinvar_2022.txt | gzip > clinvar_variants_predicted.tsv.gz
+		# create list of these clinvar variants, use to extract predicted scores
+		zcat clinvar_2022_pathogenic.vcf.gz clinvar_2022_benign.vcf.gz | grep -v "^CHROM" | awk '{{print $1, $2 }}'  >  varlist_clinvar_2022.txt
+		tabix $old_wd"/"{input} -R varlist_clinvar_2022.txt | gzip > values_of_clinvar_variants.tsv.gz
 		"""

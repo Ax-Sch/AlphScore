@@ -2,6 +2,7 @@ library(tidyverse)
 library(pROC)
 library(gridExtra)
 library(optparse)
+source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
@@ -21,105 +22,36 @@ dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
 
 # get DEOGEN2 Scores:
-get_DEOGEN2_score<-function(DEOGEN2_score) {
-  DEOGEN2_score<-str_replace(DEOGEN2_score, fixed(";."), "")
-  DEOGEN2_score<-(str_replace(DEOGEN2_score, fixed(".;"), ""))
-  median_score<-function(score_field){
-    score_as_list<-str_split(score_field, ";", simplify = TRUE)
-    score_as_list[score_as_list=="."]<-NA
-    score_as_list<-as.double(score_as_list)
-    return(median(score_as_list, na.rm=TRUE) )
-  }
-  DEOGEN2_score_med<-sapply(1:length(DEOGEN2_score), function(x) { median_score(DEOGEN2_score[x])})
-  return(DEOGEN2_score_med)
-}
-variants$DEOGEN2_score_med<-get_DEOGEN2_score(variants$DEOGEN2_score)
-variants$AlphScore<-variants$predicted_Alph
+variants$pos_in_VEP_and_Uniprot<-get_index_col(variants)
+variants$DEOGEN2_score_med<-unlist_score(variants$DEOGEN2_score, variants$pos_in_VEP_and_Uniprot)
 
+validation_dataset$pos_in_VEP_and_Uniprot<-get_index_col(validation_dataset)
+validation_dataset$DEOGEN2_score_med<-unlist_score(validation_dataset$DEOGEN2_score, validation_dataset$pos_in_VEP_and_Uniprot)
+
+variants$AlphScore<-variants$predicted_Alph
 ### combine scores on interim dataset:
 interim_dataset<-variants %>% 
-  filter(CVinterim_no21_18_no_gnomad==TRUE,
+  filter(gnomad_no_cv21to18==TRUE,
                 gnomadSet==0)
 
-model_glm_AC <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, AlphScore, CADD_raw) %>%
-                      filter(complete.cases(.)))
 
-model_glm_AR <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, AlphScore, REVEL_score) %>%
-                      filter(complete.cases(.)))
-
-model_glm_RC <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, CADD_raw, REVEL_score) %>%
-                      filter(complete.cases(.)))
-
-model_glm_ARC <- glm(outcome ~ . , family=binomial(link='logit'),
-                     data=interim_dataset %>% dplyr::select(outcome, AlphScore, CADD_raw, REVEL_score) %>%
-                       filter(complete.cases(.)))
-
-model_glm_AD <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, AlphScore, DEOGEN2_score_med) %>%
-                      filter(complete.cases(.)))
-
-model_glm_CD <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, CADD_raw, DEOGEN2_score_med) %>%
-                      filter(complete.cases(.)))
-
-model_glm_DR <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, REVEL_score, DEOGEN2_score_med) %>%
-                      filter(complete.cases(.)))
-
-model_glm_ADR <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_dataset %>% dplyr::select(outcome, AlphScore, REVEL_score, DEOGEN2_score_med) %>%
-                      filter(complete.cases(.)))
-
-model_glm_ACD <- glm(outcome ~ . , family=binomial(link='logit'),
-                     data=interim_dataset %>% dplyr::select(outcome, AlphScore, CADD_raw, DEOGEN2_score_med) %>%
-                       filter(complete.cases(.)))
-
-model_glm_CDR <- glm(outcome ~ . , family=binomial(link='logit'),
-                     data=interim_dataset %>% dplyr::select(outcome, CADD_raw, DEOGEN2_score_med, REVEL_score) %>%
-                       filter(complete.cases(.)))
-
-validation_dataset$DEOGEN2_score_med<-get_DEOGEN2_score(validation_dataset$DEOGEN2_score)
-
-
-validation_dataset$predicted_glm_AC<-predict(model_glm_AC, validation_dataset)
-validation_dataset$predicted_glm_AR<-predict(model_glm_AR, validation_dataset)
-validation_dataset$predicted_glm_RC<-predict(model_glm_RC, validation_dataset)
-validation_dataset$predicted_glm_ARC<-predict(model_glm_ARC, validation_dataset)
-validation_dataset$predicted_glm_AD<-predict(model_glm_AD, validation_dataset)
-validation_dataset$predicted_glm_CD<-predict(model_glm_CD, validation_dataset)
-validation_dataset$predicted_glm_DR<-predict(model_glm_DR, validation_dataset)
-validation_dataset$predicted_glm_ADR<-predict(model_glm_ADR, validation_dataset)
-validation_dataset$predicted_glm_ACD<-predict(model_glm_ACD, validation_dataset)
-validation_dataset$predicted_glm_CDR<-predict(model_glm_CDR, validation_dataset)
+set_of_models<-fit_set_of_models(interim_dataset)
+validation_dataset<-predict_set_of_models(set_of_models, validation_dataset)
 
 ###### validation Dataset
 
+variants<-variants%>% 
+  mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))
 
 validation_dataset<-validation_dataset %>%
-  filter(is.na(gnomAD_genomes_AC) & is.na(gnomAD_genomes_AC))
+  mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
+  filter(!ID %in% variants$ID)
 
-check_corr_CADD<-ggplot(validation_dataset)+
-  geom_point(aes(x=CADD_raw, y=DMS_val), alpha=0.1)+
-  facet_wrap(~ paste(DMS, gene_dms), scales="free")
-print(check_corr_CADD)
-ggsave(filename="check_corr_CADD.pdf", plot=check_corr_CADD)
-
-check_corr_Alph<-ggplot(validation_dataset)+
-  geom_point(aes(x=AlphScore, y=DMS_val), alpha=0.1)+
-  facet_wrap(~ paste(DMS, gene_dms), scales="free")
-print(check_corr_Alph)
-ggsave(filename="check_corr_Alph.pdf", plot=check_corr_Alph)
-
-
-
-SCORES<-c("AlphScore", "CADD_raw", "predicted_glm_AC", 
-          "REVEL_score", "predicted_glm_AR", "predicted_glm_RC", 
-          "DEOGEN2_score_med", "predicted_glm_AD", "predicted_glm_CD", 
-          "predicted_glm_ACD", "predicted_glm_DR","predicted_glm_ADR",
-          "predicted_glm_CDR")
+SCORES<-c("AlphScore", "CADD_raw", "glm_AlphCadd", 
+          "REVEL_score", "glm_AlphRevel", "glm_RevelCadd", 
+          "DEOGEN2_score_med", "glm_AlphDeogen", "glm_CaddDeogen", 
+          "glm_AlphCaddDeogen", "glm_DeogenRevel","glm_AlphDeogenRevel",
+          "glm_CaddDeogenRevel")
 spearmans_joined<-tibble()
 for (un_ID in unique(validation_dataset$Uniprot_acc_split)){
   temp_values_joined<-validation_dataset %>% 
@@ -156,6 +88,7 @@ spearmans_joined<-spearmans_joined %>%
   filter(! UP_ID %in% bad_UP_ids)%>%
   left_join(prot_info_for_join, by=c("UP_ID"="Uniprot_acc_split"))
 
+
 spearmans_joined_spread<-spearmans_joined%>% 
   spread(method, spearm)
 
@@ -185,6 +118,15 @@ plot_spearmans<-ggplot(spearmans_joined, aes(x=method, y=abs(spearm)))+
 plot_spearmans
 ggsave(filename= "spearman_plot_colored.pdf", plot=plot_spearmans, height=8, width=8)
 
+table_spearm<-spearmans_joined %>% 
+  mutate(abs_spearman=abs(spearm))%>%
+  group_by(method)%>%
+  summarise(mean_spearm=mean(abs_spearman), sd=sd(abs_spearman), num=n(), sem=sd(abs_spearman)/sqrt(n())) %>%
+  arrange(-mean_spearm)
+
+print(table_spearm)
+
+write_tsv(x = table_spearm, file = "table_spearm.tsv")
 
 friedman.test(abs(spearmans_joined$spearm), 
               spearmans_joined$method, 
@@ -194,3 +136,4 @@ pairwise.wilcox.test(abs(spearmans_joined$spearm),
                      spearmans_joined$method, 
                      paired=TRUE, 
                      p.adj = "bonf")
+

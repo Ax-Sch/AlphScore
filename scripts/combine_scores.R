@@ -2,6 +2,7 @@ library(tidyverse)
 library(pROC)
 library(gridExtra)
 library(optparse)
+source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
@@ -96,19 +97,12 @@ print(p_resnum_pred)
 ggsave(filename="p_resnum_pred.pdf", p_resnum_pred)
 
 
-
-# get DEOGEN2 Scores
-variants$DEOGEN2_score<-str_replace(variants$DEOGEN2_score, fixed(";."), "")
-variants$DEOGEN2_score<-(str_replace(variants$DEOGEN2_score, fixed(".;"), ""))
-median_score<-function(score_field){
-  score_as_list<-str_split(score_field, ";", simplify = TRUE)
-  score_as_list[score_as_list=="."]<-NA
-  score_as_list<-as.double(score_as_list)
-  return(median(score_as_list, na.rm=TRUE) )
-}
-variants$DEOGEN2_score_med<-sapply(1:nrow(variants), function(x) { median_score(variants$DEOGEN2_score[x])})
+variants$AlphScore<-variants$predicted_Alph
 
 
+
+variants$pos_in_VEP_and_Uniprot<-get_index_col(variants)
+variants$pos_in_VEP_and_Uniprot<-unlist_score(variants$SIFT_score, variants$pos_in_VEP_and_Uniprot)
 
 ### combine scores on interim dataset:
 train_dataset<-variants %>% 
@@ -122,34 +116,9 @@ interim_test_dataset<-variants %>%
          gnomadSet==0)
 length(unique(interim_test_dataset$Uniprot_acc_split))
 
-
-
-model_glm_AC <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_test_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
-                      filter(complete.cases(.)))
-
-model_glm_AR <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_test_dataset %>% dplyr::select(outcome, predicted_Alph, REVEL_score) %>%
-                      filter(complete.cases(.)))
-
-model_glm_RC <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_test_dataset %>% dplyr::select(outcome, CADD_raw, REVEL_score) %>%
-                      filter(complete.cases(.)))
-
-model_glm_ARC <- glm(outcome ~ . , family=binomial(link='logit'),
-                     data=interim_test_dataset %>% dplyr::select(outcome, predicted_Alph, CADD_raw, REVEL_score) %>%
-                       filter(complete.cases(.)))
-
-model_glm_AD <- glm(outcome ~ . , family=binomial(link='logit'),
-                    data=interim_test_dataset %>% dplyr::select(outcome, predicted_Alph, DEOGEN2_score_med) %>%
-                      filter(complete.cases(.)))
-
-
-variants$predicted_glm_AC<-predict(model_glm_AC, variants)
-variants$predicted_glm_AR<-predict(model_glm_AR, variants)
-variants$predicted_glm_RC<-predict(model_glm_RC, variants)
-variants$predicted_glm_ARC<-predict(model_glm_ARC, variants)
-variants$predicted_glm_AD<-predict(model_glm_AD, variants)
+set_of_models<-fit_set_of_models(interim_test_dataset)
+interim_test_dataset<-predict_set_of_models(set_of_models, interim_test_dataset)
+variants<-predict_set_of_models(abc, variants)
 
 test_dataset<-variants %>% 
   filter(cv18_to_21_CV_test==TRUE)
@@ -163,11 +132,11 @@ for (aa in unique(test_dataset$from_AS)){
                 prop_patho=mean(interim_dataset$outcome),
                 AA=aa,
                 auc_alph=auc(interim_dataset$outcome, interim_dataset$predicted_Alph),
-                auc_CADD_plus_ALPH=auc(interim_dataset$outcome, interim_dataset$predicted_glm_AC),
+                auc_CADD_plus_ALPH=auc(interim_dataset$outcome, interim_dataset$glm_AlphCadd),
                 auc_CADD=auc(interim_dataset$outcome,interim_dataset$CADD_raw),
                 auc_REVEL=auc(interim_dataset$outcome,interim_dataset$REVEL_score),
-                auc_REVEL_plus_ALPH=auc(interim_dataset$outcome,interim_dataset$predicted_glm_AR),
-                auc_REVEL_plus_CADD=auc(interim_dataset$outcome,interim_dataset$predicted_glm_RC)
+                auc_REVEL_plus_ALPH=auc(interim_dataset$outcome,interim_dataset$glm_AlphRevel),
+                auc_REVEL_plus_CADD=auc(interim_dataset$outcome,interim_dataset$glm_RevelCadd)
               ))
 }
 
@@ -175,10 +144,10 @@ allAA_aucs<-tibble(
   scores=c("AlphScore", "CADD", "AlphScore + CADD", "REVEL", "REVEL + AlphScore", "REVEL + CADD"),
   values=c(auc(test_dataset$outcome, test_dataset$predicted_Alph),
            auc(test_dataset$outcome, test_dataset$CADD_raw),
-           auc(test_dataset$outcome, test_dataset$predicted_glm_AC),
+           auc(test_dataset$outcome, test_dataset$glm_AlphCadd),
            auc(test_dataset$outcome, test_dataset$REVEL_score),
-           auc(test_dataset$outcome, test_dataset$predicted_glm_AR),
-           auc(test_dataset$outcome, test_dataset$predicted_glm_RC) )
+           auc(test_dataset$outcome, test_dataset$glm_AlphRevel),
+           auc(test_dataset$outcome, test_dataset$glm_RevelCadd) )
 )
 
 p1<-ggplot(rhos)+
@@ -243,20 +212,28 @@ ggsave(filename="aucs.pdf", plot=aucs)
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$CADD_raw), print.auc = TRUE, col = "red")
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
                  col = "blue", print.auc.y = .4, add = TRUE)
-roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AC), print.auc = TRUE, 
+roc_rose <- plot(roc(test_dataset$outcome, test_dataset$glm_AlphCadd), print.auc = TRUE, 
                  col = "black", print.auc.y = .2, add = TRUE)
 
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$REVEL_score), print.auc = TRUE, col = "red")
 roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
                  col = "blue", print.auc.y = .4, add = TRUE)
-roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_glm_AR), print.auc = TRUE, 
+roc_rose <- plot(roc(test_dataset$outcome, test_dataset$glm_AlphRevel), print.auc = TRUE, 
                  col = "black", print.auc.y = .2, add = TRUE)
+
+roc_rose <- plot(roc(test_dataset$outcome, test_dataset$DEOGEN2_score_med), print.auc = TRUE, col = "red")
+roc_rose <- plot(roc(test_dataset$outcome, test_dataset$predicted_Alph), print.auc = TRUE, 
+                 col = "blue", print.auc.y = .4, add = TRUE)
+roc_rose <- plot(roc(test_dataset$outcome, test_dataset$glm_AlphDeogen), print.auc = TRUE, 
+                 col = "black", print.auc.y = .2, add = TRUE)
+
+
 
 length(unique(test_dataset$Uniprot_acc_split))
 
 values=c(auc(test_dataset$outcome, test_dataset$predicted_Alph),
          auc(test_dataset$outcome, test_dataset$CADD_raw),
-         auc(test_dataset$outcome, test_dataset$predicted_glm_AC),
+         auc(test_dataset$outcome, test_dataset$glm_AlphCadd),
          auc(test_dataset$outcome, test_dataset$REVEL_score),
-         auc(test_dataset$outcome, test_dataset$predicted_glm_AR),
-         auc(test_dataset$outcome, test_dataset$predicted_glm_RC) )
+         auc(test_dataset$outcome, test_dataset$glm_AlphRevel),
+         auc(test_dataset$outcome, test_dataset$glm_RevelCadd) )

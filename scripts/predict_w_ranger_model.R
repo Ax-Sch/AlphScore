@@ -2,6 +2,7 @@ library(readr)
 library(dplyr)
 library(optparse)
 library(ranger)
+source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
@@ -20,8 +21,6 @@ option_list = list(
 )
 
 opt = parse_args(OptionParser(option_list=option_list))
-#DEBUG:
-#opt$csv_location="/media/axel/Dateien/Arbeit_Gen/alphafold2/data_from_xcat_v2/variants_preprocessed_recalibrated_v2.csv.gz"
 
 to_AS_table<-read_tsv("resources/to_AS_table.txt")
 colnames(to_AS_table) <- paste(colnames(to_AS_table), "toAS", sep = "_")
@@ -77,12 +76,13 @@ variants<-variants %>%
   mutate(in_clinvar_ds=!is.na(clinvar_clnsig) & clinvar_clnsig %in% c("Likely_pathogenic","Pathogenic","Benign", "Likely_benign") )
 
 
+
 if (opt$reduced==TRUE){
-variants<-variants %>% 
+ variants<-variants %>% 
   mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
   select(any_of(colnames(variants)[2:10]), 
-         ID, genename, Uniprot_acc, Uniprot_acc_split, CADD_raw, REVEL_score, DEOGEN2_score, 
-         b_factor, SOLVENT_ACCESSIBILITY_core,  in_train_ds, in_clinvar_ds, AlphScore)
+         ID, genename, Uniprot_acc_split,Uniprot_acc,HGVSp_VEP_split, HGVSp_VEP, CADD_raw, REVEL_score, DEOGEN2_score, 
+         b_factor, SOLVENT_ACCESSIBILITY_core, in_train_ds, in_clinvar_ds, AlphScore)
 }
 
 write_csv(x=variants,

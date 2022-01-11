@@ -6,7 +6,7 @@ library(optparse)
 set.seed(1)
 
 option_list = list(
-  make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/git_version/AlphScore/data/train_testset1/gnomad_extracted_prepro_rec.csv.gz", 
+  make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/git_version/AlphScore/data/train_testset1/subsampled_vars.csv", 
               help="csv.gz file"),
   make_option(c("-e", "--excel_location"), type="character", default="resources/available_colnames_W_surr.xlsx", 
               help="Excel file listing columns to use"),
@@ -290,7 +290,7 @@ if (opt$k_fold_cross_val == TRUE){
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test)
   
-  var_ids_train<- train_dataset<-(variants %>% filter(train_ds))$var_id_genomic
+  var_ids_train<- (variants %>% filter(train_ds))$var_id_genomic
   test_dataset_gnomad<-variants %>% 
     filter(pure_cv18_to_21_gene, gnomadSet == 1) %>%
     filter(!var_id_genomic %in% var_ids_train)
