@@ -8,7 +8,7 @@ set.seed(1)
 option_list = list(
   make_option(c("-c", "--csv_location"), type="character", default="/media/axel/Dateien/Arbeit_Gen/alphafold2/git_version/AlphScore/data/train_testset1/subsampled_vars.csv", 
               help="csv.gz file"),
-  make_option(c("-e", "--excel_location"), type="character", default="resources/available_colnames_W_surr.xlsx", 
+  make_option(c("-e", "--excel_location"), type="character", default="resources/available_colnames_regular.xlsx", 
               help="Excel file listing columns to use"),
   make_option(c("-p", "--prefix"), type="character", default="base_model", 
               help="Prefix for output"),

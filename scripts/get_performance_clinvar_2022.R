@@ -40,48 +40,67 @@ all_clinvar_ids<-c(clinvar_benign$ID, clinvar_pathogenic$ID)
 
 alphafold_pre_calculated_w_CV2022<-alphafold_pre_calculated %>%
   filter(ID %in% all_clinvar_ids)%>%
-  mutate(ClinVar2022_pathogenic=(ID %in% clinvar_pathogenic$ID))%>%
-  filter(is.na(in_train_ds) | in_train_ds==FALSE)%>%
-  filter(!is.na(AlphScore))%>%
-  arrange(AlphScore) %>%
-  mutate(AlphScore_rank=(1:n())/n())
+  mutate(outcome=(ID %in% clinvar_pathogenic$ID))%>%
+  filter(!is.na(AlphScore))
+
+num_vars<-nrow(alphafold_pre_calculated_w_CV2022)
+alphafold_pre_calculated_w_CV2022$CrossValGroup<-as.integer(runif(num_vars,1,6))
 
 
-alphafold_pre_calculated_w_CV2022_train<-alphafold_pre_calculated_w_CV2022 %>%
-  filter(in_clinvar_ds==TRUE)%>%
-  mutate(outcome=ClinVar2022_pathogenic)
+score_performance_tbl<-tibble()
 
-alphafold_pre_calculated_w_CV2022_test<-alphafold_pre_calculated_w_CV2022 %>%
-  filter(is.na(in_clinvar_ds) | in_clinvar_ds==FALSE)
+for (i in unique(alphafold_pre_calculated_w_CV2022$CrossValGroup)){
+  
+  trainSet<-alphafold_pre_calculated_w_CV2022 %>%
+    filter(CrossValGroup!=i)
+  
+  testSet<-alphafold_pre_calculated_w_CV2022 %>%
+    filter(CrossValGroup==i)%>%
+    filter(!ID %in% trainSet$ID)
+  
+  set_of_models<-fit_set_of_models(trainSet)
+  testSet<-predict_set_of_models(set_of_models, testSet)
+  
+  roc_rose <- plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
+                   col = "black", print.auc.y = .4)
+  roc_rose <- plot(roc(testSet$outcome, testSet$REVEL_score), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .2, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphRevel), print.auc = TRUE, 
+                   col = "red", print.auc.y = .3, add = TRUE)
+  
+  roc_rose <- plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
+                   col = "black", print.auc.y = .4)
+  roc_rose <- plot(roc(testSet$outcome, testSet$CADD_raw), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .2, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphCadd), print.auc = TRUE, 
+                   col = "green", print.auc.y = .6, add = TRUE)
+  
+  roc_rose <- plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
+                   col = "black", print.auc.y = .4)
+  roc_rose <- plot(roc(testSet$outcome, testSet$DEOGEN2_score_med), print.auc = TRUE, 
+                   col = "blue", print.auc.y = .2, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphDeogen), print.auc = TRUE, 
+                   col = "green", print.auc.y = .6, add = TRUE)
+  
+  score_performance_tbl <- rbind(score_performance_tbl, 
+                       tibble(auc_Alph=roc(testSet$outcome, testSet$AlphScore)$auc, 
+                              auc_CADD=roc(testSet$outcome, testSet$CADD_raw)$auc, 
+                              auc_REVEL=roc(testSet$outcome, testSet$REVEL_score)$auc,
+                              auc_DEOGEN2=roc(testSet$outcome, testSet$DEOGEN2_score_med)$auc, 
+                              auc_AlphCadd=roc(testSet$outcome, testSet$glm_AlphCadd)$auc, 
+                              auc_AlphDeogen=roc(testSet$outcome, testSet$glm_AlphDeogen)$auc, 
+                              auc_AlphRevel=roc(testSet$outcome, testSet$glm_AlphRevel)$auc, 
+                              num_train=nrow(trainSet),
+                              num_test=nrow(testSet) ))
+}
 
+score_mean<-score_performance_tbl %>%
+  summarise_all(mean)
 
-set_of_models<-fit_set_of_models(alphafold_pre_calculated_w_CV2022_train)
+score_sd<-score_performance_tbl %>%
+  summarise_all(sd)
 
-alphafold_pre_calculated_w_CV2022_test<-predict_set_of_models(set_of_models, alphafold_pre_calculated_w_CV2022_test)
-
-
-check_count_proteins<-table(alphafold_pre_calculated_w_CV2022_test$Uniprot_acc_split) 
-sort(-check_count_proteins)[1:20]
-
-check_count_variants<-table(alphafold_pre_calculated_w_CV2022_test$ID) 
-sort(-check_count_variants)[1:20]
-
-
-roc_rose <- plot(roc(as.integer(alphafold_pre_calculated_w_CV2022_test$ClinVar2022_pathogenic), alphafold_pre_calculated_w_CV2022_test$AlphScore), print.auc = TRUE, 
-                 col = "black", print.auc.y = .4)
-roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022_test$ClinVar2022_pathogenic, alphafold_pre_calculated_w_CV2022_test$REVEL_score), print.auc = TRUE, 
-                 col = "blue", print.auc.y = .2, add = TRUE)
-roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022_test$ClinVar2022_pathogenic, alphafold_pre_calculated_w_CV2022_test$CADD_raw), print.auc = TRUE, 
-                 col = "green", print.auc.y = .6, add = TRUE)
-roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022_test$ClinVar2022_pathogenic, alphafold_pre_calculated_w_CV2022_test$glm_AlphRevel), print.auc = TRUE, 
-                 col = "red", print.auc.y = .3, add = TRUE)
-roc_rose <- plot(roc(alphafold_pre_calculated_w_CV2022_test$ClinVar2022_pathogenic, alphafold_pre_calculated_w_CV2022_test$glm_AlphCaddDeogen), print.auc = TRUE, 
-                 col = "red", print.auc.y = .3, add = TRUE)
-
-ggplot(alphafold_pre_calculated_w_CV2022_test)+
-  geom_histogram(aes(x=AlphScore, color=ClinVar2022_pathogenic))
-
-
-ggplot(alphafold_pre_calculated_w_CV2022_test)+
-  geom_point(aes(x=AlphScore, y=CADD_raw, color=ClinVar2022_pathogenic))
+return_sem<-function(x) { return(sd(x)/sqrt(length(x)) )}
+score_se<-score_performance_tbl %>%
+  summarise_all(return_sem)
 

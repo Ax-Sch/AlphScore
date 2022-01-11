@@ -24,9 +24,11 @@ range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 gnomad_vars<-variants %>% 
   filter(gnomadSet==1) %>% 
   select(all_of(colnames_to_use), from_AS) %>% 
-  select(-(ends_with("toAS") ))
+  select(-(ends_with("toAS") ))%>%
+  select(-starts_with("RESIDUE_NAME"))
 
-scaled_vars<-as_tibble(scale(gnomad_vars %>% dplyr::select(-outcome, -from_AS) ) )
+scaled_vars<-as_tibble(scale(gnomad_vars %>% 
+                               dplyr::select(-outcome, -from_AS) ) )
 scaled_vars$outcome<-gnomad_vars$outcome
 scaled_vars$from_AS<-gnomad_vars$from_AS
 

@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=False
+testing=True
 
 import subprocess
 import os
@@ -18,11 +18,11 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 
 
 if testing == True:
-	#grid_search_table=grid_search_table.iloc[[0,1]] # testing
+	grid_search_table=grid_search_table.iloc[[0,5]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:2400]
+	relevant_alphafold_models=relevant_alphafold_models[0:800]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:2400]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
 
 
 rule all:
@@ -34,15 +34,16 @@ rule all:
 		"data/merge_all/all_possible_values_concat.csv.gz",
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 		"data/joined_grid/joined_grid.tsv",
-		"data/prediction/final_written_full_model.RData",
+		"data/prediction_final/final_regular_written_full_model.RData",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
 		"data/combine_scores/aucs.pdf",
-		"data/plot_k/pre_final_model_importance_permutation.pdf",
+		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
-		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
+		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -336,7 +337,7 @@ rule get_properties_clinvar_gnomad_set:
 	input:
 		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
 		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
-		excel="resources/available_colnames_W_surr.xlsx"
+		excel="resources/available_colnames_regular.xlsx"
 	output:
 		barplot_pre="data/plot_k/barplot_preprocessed.pdf",
 		barplot_rec="data/plot_k/barplot_recalibrated.pdf",
@@ -365,18 +366,21 @@ rule get_properties_clinvar_gnomad_set:
 
 rule training_do_grid_search:
 	input:
-		"resources/available_colnames_W_surr.xlsx",
+		"resources/available_colnames_regular.xlsx",
 		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz"
 	output:
 		"data/prediction/{prefix}_results.tsv"
 	resources: cpus=8, mem_mb=48000, time_job=480
 	params:
-		partition=config["short_partition"]
+		partition=config["short_partition"],
+		out_folder="data/prediction/"
 	run:
 		import os
 		parameters=grid_search_table[grid_search_table["prefix"]==wildcards[0]]
 		os.system('Rscript scripts/prediction.R --prefix ' + 
-			wildcards[0] + " --csv_location " + input[1] + 
+			wildcards[0] + " --excel_location " + input[0] + 
+			" --csv_location " + input[1] + 
+			" --out_folder " + params[1] +
 			" " + " ".join(parameters.iloc[0,1:].to_list()))
 
 rule join_grid_search_files:
@@ -396,20 +400,21 @@ rule join_grid_search_files:
 
 rule fit_models_w_final_settings_from_grid_search:
 	input:
-		excel="resources/available_colnames_W_surr.xlsx",
+		excel="resources/available_colnames{FeatureSetToTake}.xlsx",
 		csv="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
 		grid_res="data/joined_grid/joined_grid.tsv"
 	output:
-		"data/prediction/final_written_full_model.RData",
-		"data/prediction/final_toAS_properties.RData",
-		"data/prediction/final_colnames_to_use.RData",
-		"data/prediction/pre_final_model_variants.csv.gz",
-		"data/prediction/pre_final_model_impurity_importance.tsv",
-		"data/prediction/pre_final_model_permutation_importance.tsv",
-		"data/prediction/pre_final_model_k_fold_results.tsv"
+		"data/prediction_final/final{FeatureSetToTake}_written_full_model.RData",
+		"data/prediction_final/final{FeatureSetToTake}_toAS_properties.RData",
+		"data/prediction_final/final{FeatureSetToTake}_colnames_to_use.RData",
+		"data/prediction_final/pre_final_model{FeatureSetToTake}_variants.csv.gz",
+		"data/prediction_final/pre_final_model{FeatureSetToTake}_impurity_importance.tsv",
+		"data/prediction_final/pre_final_model{FeatureSetToTake}_permutation_importance.tsv",
+		"data/prediction_final/pre_final_model_k_fold{FeatureSetToTake}_results.tsv"
 	resources: cpus=16, mem_mb=80000, time_job=480
 	params:
-		partition=config["short_partition"]
+		partition=config["short_partition"],
+		out_folder="data/prediction_final/"
 	run:
 		import pandas as pd
 		import os
@@ -423,18 +428,22 @@ rule fit_models_w_final_settings_from_grid_search:
 		print("Best model:")
 		print(best_model)
 		
-		base_command="Rscript scripts/prediction.R " + " --csv_location " + input[1] + " " + " ".join(parameters.iloc[0,1:].to_list())
+		base_command=('Rscript scripts/prediction.R ' +
+			' --excel_location ' + input[0] + 
+			' --csv_location ' + input[1] + 
+			' --out_folder ' + params[1] +
+			' ' + ' '.join(parameters.iloc[0,1:].to_list()) )
 		
 		print("base command:")
 		print(base_command)
 		
-		pre_final_k_fold_com=base_command + ' --prefix pre_final_model_k_fold ' + '--k_fold_cross_val TRUE '
+		pre_final_k_fold_com=base_command + ' --prefix pre_final_model_k_fold'  + wildcards[0] +' --k_fold_cross_val TRUE '
 		
-		pre_final_write_dataset_imp=base_command + ' --prefix pre_final_model ' + ' --write_model TRUE --write_dataset TRUE --importance impurity '
+		pre_final_write_dataset_imp=base_command + ' --prefix pre_final_model' + wildcards[0] +' --write_model TRUE --write_dataset TRUE --importance impurity '
 		
-		pre_final_write_dataset_per=base_command + ' --prefix pre_final_model ' + ' --write_model FALSE --write_dataset FALSE --importance permutation '
+		pre_final_write_dataset_per=base_command + ' --prefix pre_final_model' + wildcards[0] +' --write_model FALSE --write_dataset FALSE --importance permutation '
 		
-		final_write_model=base_command + ' --prefix final ' + ' --full_model TRUE --write_model TRUE '
+		final_write_model=base_command + ' --prefix final' + wildcards[0] + ' --full_model TRUE --write_model TRUE '
 		
 		print("run k-fold cross validation, command:")
 		os.system("echo " + pre_final_k_fold_com)
@@ -457,9 +466,9 @@ rule fit_models_w_final_settings_from_grid_search:
 rule predict_Alphscore_protein_level:
 	input:
 		csv="data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz",
-		model="data/prediction/final_written_full_model.RData",
-		to_AS="data/prediction/final_toAS_properties.RData",
-		colnames="data/prediction/final_colnames_to_use.RData",
+		model="data/prediction_final/final_regular_written_full_model.RData",
+		to_AS="data/prediction_final/final_regular_toAS_properties.RData",
+		colnames="data/prediction_final/final_regular_colnames_to_use.RData",
 	output:
 		"data/predicted_prots/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
 	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
@@ -493,7 +502,7 @@ rule create_validation_set_DMS:
 rule analyse_performance_on_DMS_data:
 	input:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
-		test_dataset="data/prediction/pre_final_model_variants.csv.gz"
+		test_dataset="data/prediction_final/pre_final_model_regular_variants.csv.gz"
 	output:
 		one_plot="data/analyse_score/spearman_plot.pdf",
 	resources: cpus=1, mem_mb=30000, time_job=480
@@ -510,7 +519,7 @@ rule analyse_performance_on_DMS_data:
 
 rule combine_alphafold_w_existing_scores:
 	input:
-		variant_dataset="data/prediction/pre_final_model_variants.csv.gz"
+		variant_dataset="data/prediction_final/pre_final_model_regular_variants.csv.gz"
 	output:
 		one_plot="data/combine_scores/aucs.pdf",
 	resources: cpus=1, mem_mb=40000, time_job=480
@@ -528,12 +537,12 @@ rule combine_alphafold_w_existing_scores:
 		
 rule properties_score:
 	input:
-		impurity="data/prediction/pre_final_model_impurity_importance.tsv",
-		permutation="data/prediction/pre_final_model_permutation_importance.tsv",
-		tsv_location="data/prediction/pre_final_model_k_fold_results.tsv"
+		impurity="data/prediction_final/pre_final_model_regular_impurity_importance.tsv",
+		permutation="data/prediction_final/pre_final_model_regular_permutation_importance.tsv",
+		tsv_location="data/prediction_final/pre_final_model_k_fold_regular_results.tsv"
 	output:
-		imp_impurity="data/plot_k/pre_final_model_importance_impurity.pdf",
-		imp_permutation="data/plot_k/pre_final_model_importance_permutation.pdf",
+		imp_impurity="data/plot_k/pre_final_model_regular_importance_impurity.pdf",
+		imp_permutation="data/plot_k/pre_final_model_regular_importance_permutation.pdf",
 		barplot_mean_auc_cv="data/plot_k/barplot_mean_auc_crossval.pdf"
 	resources: cpus=1, mem_mb=18000, time_job=480
 	params:
