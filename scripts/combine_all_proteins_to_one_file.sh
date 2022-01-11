@@ -24,7 +24,7 @@ fi
 fi
 done
 
-#relevant_cols=$(zcat data/validation_set/validation_set_w_AlphScore.csv.gz | awk -v RS=',' '/^b_factor$/{print NR} /^SOLVENT_ACCESSIBILITY_core$/{print NR} /^Uniprot_acc_split$/{print NR} /^train_ds$/{print NR} /AlphScore/{print NR; exit}' | tr "\n" ",")"2,3,4,5,6,7,8,9,10"
+#relevant_cols=$(zcat data/validation_set/validation_set_w_AlphScore.csv.gz | awk -v RS=',' '/^b_factor$/{print NR} /^SOLVENT_ACCESSIBILITY_core$/{print NR} /^Uniprot_acc_split$/{print NR} /^gnomad_train$/{print NR} /AlphScore/{print NR; exit}' | tr "\n" ",")"2,3,4,5,6,7,8,9,10"
 
 
 echo $zcat_string

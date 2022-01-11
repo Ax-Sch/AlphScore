@@ -83,7 +83,7 @@ variants$Alph_null<-predict(model_to_use_null, variants_alph_null)$predictions
 
 # flag variants that are in the training data set or that are in dbNSFP ClinVar
 variants<-variants %>% 
-  mutate(in_train_ds=((is.na(gnomAD_exomes_AC) | (gnomAD_exomes_AC<2 & (gnomAD_exomes_NFE_AC == gnomAD_exomes_AC) ) )  & 
+  mutate(in_gnomad_train=((is.na(gnomAD_exomes_AC) | (gnomAD_exomes_AC<2 & (gnomAD_exomes_NFE_AC == gnomAD_exomes_AC) ) )  & 
                             gnomAD_genomes_AN>90000 &
                             (!gnomAD_genomes_flag %in% c("lcr","segdup"))&
                             gnomAD_genomes_AC==1 & 
@@ -104,7 +104,7 @@ if (opt$reduced==TRUE){
   mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
   select(any_of(colnames(variants)[2:10]), 
          ID, genename, Uniprot_acc_split,Uniprot_acc,HGVSp_VEP_split, HGVSp_VEP, CADD_raw, REVEL_score, DEOGEN2_score, 
-         b_factor, SOLVENT_ACCESSIBILITY_core, in_train_ds, in_clinvar_ds, Alph_null, AlphScore)
+         b_factor, SOLVENT_ACCESSIBILITY_core, in_gnomad_train, in_clinvar_ds, Alph_null, AlphScore)
 }
 
 # write to disk

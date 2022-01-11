@@ -138,12 +138,12 @@ ranger_save<-function(modelx, filename){
 xgboost_fit<-function(xtrain_dataset){
   library(xgboost)
   set.seed(1)
-  train_ds<-xgb.DMatrix(data=as.matrix(xtrain_dataset %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome )
+  gnomad_train<-xgb.DMatrix(data=as.matrix(xtrain_dataset %>% dplyr::select(-outcome)), label=xtrain_dataset$outcome )
   test_ds_tibble<-variants %>% 
-    filter(cv18_to_21_CV_test==TRUE) %>% 
+    filter(clinvar_holdout_test==TRUE) %>% 
     dplyr::select(any_of(colnames(xtrain_dataset)))
   test_ds<-xgb.DMatrix(data=as.matrix(test_ds_tibble %>% dplyr::select(-outcome)), label=test_ds_tibble$outcome)
-  watchlist=list(train=train_ds, test=test_ds)
+  watchlist=list(train=gnomad_train, test=test_ds)
   
   params <- list(max_depth = opt$max_depth_param, 
                  subsample=opt$subsample_param, 
@@ -153,7 +153,7 @@ xgboost_fit<-function(xtrain_dataset){
                  gamma=opt$gamma_param, 
                  min_child_weight=opt$min_child_weight_param)
   model1<-xgb.train(
-    data=train_ds,
+    data=gnomad_train,
     watchlist = watchlist,
     params=params,
     nrounds = opt$num_trees_param,
@@ -206,38 +206,38 @@ if (opt$k_fold_cross_val == TRUE){
     
     
     glm_AlphCadd<- glm(outcome ~ . , family=binomial(link='logit'), #glm model with non_h_cv, inclusion of CADD score; predicted_non_h_gnomad_Alph_non_h_cv_test
-                            data=variants %>% filter(clinvar_interim_test) %>% 
+                            data=variants %>% filter(clinvar_holdout_test) %>% 
                             dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
                             filter(complete.cases(.)))
     
     variants$glm_AlphCadd <-predict(glm_AlphCadd, variants)#prediction with model = non_h_cv_model_glm, test = : predicted__non_h_cv_glm_h_cv_test
     
-    clinvar_interim_test<-variants %>% filter(clinvar_interim_test)
     clinvar_holdout_test<-variants %>% filter(clinvar_holdout_test)
+    clinvar_interim_test<-variants %>% filter(clinvar_interim_test)
     
     save_tibble <- rbind(save_tibble, 
                          tibble(auc_Alph_train_gnomAD=roc(gnomad_train$outcome, gnomad_train$predicted_Alph)$auc, 
                                 Alph_OOB=ifelse((opt$method_pred=="randomforest"), gnomad_model_Alph$prediction.error, NA),
-                                auc_CADD_interim_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw)$auc, 
-                                auc_Alph_interim_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph)$auc,
-                                auc_CADD_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw)$auc, 
-                                auc_Alph_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph)$auc, 
-                                auc_glm_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$glm_AlphCadd)$auc, 
+                                auc_CADD_interim_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw)$auc, 
+                                auc_Alph_interim_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph)$auc,
+                                auc_CADD_test_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw)$auc, 
+                                auc_Alph_test_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph)$auc, 
+                                auc_glm_test_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$glm_AlphCadd)$auc, 
                                 sample_num=h,
                                 gnomad_train_nrow=nrow(gnomad_train),
-                                interim_cv_nrow=nrow(clinvar_interim_test),
-                                test_cv_nrow=nrow(clinvar_holdout_test),
+                                interim_cv_nrow=nrow(clinvar_holdout_test),
+                                test_cv_nrow=nrow(clinvar_interim_test),
                                 condition=opt$prefix ))
     
     
-   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw), print.auc = TRUE, col = "red")
-   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph), print.auc = TRUE, 
+   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw), print.auc = TRUE, col = "red")
+   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph), print.auc = TRUE, 
                                col = "green", print.auc.y = .2, add = TRUE)
     
-   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw), print.auc = TRUE, col = "red", add=FALSE)
-   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$glm_AlphCadd), print.auc = TRUE, 
+   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw), print.auc = TRUE, col = "red", add=FALSE)
+   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$glm_AlphCadd), print.auc = TRUE, 
                            col = "blue", print.auc.y = .2, add = TRUE)
-   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph), print.auc = TRUE, 
+   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph), print.auc = TRUE, 
                            col = "green", print.auc.y = .4, add = TRUE)
   }
   
@@ -251,7 +251,7 @@ if (opt$k_fold_cross_val == TRUE){
   variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
-    filter(CVinterim_no21_18_no_gnomad)
+    filter(clinvar_interim_test)
   
   save_tibble <- tibble(auc_Alph_train_gnomAD=roc(var_full_model$outcome, var_full_model$predicted_Alph)$auc,
                         Alph_OOB=ifelse((opt$method_pred %in% c("randomforest","extratree")), gnomad_model_Alph$prediction.error, NA),
@@ -265,7 +265,7 @@ if (opt$k_fold_cross_val == TRUE){
   
 }else{
   train_dataset<-variants %>% 
-    filter(train_ds)%>%
+    filter(gnomad_train)%>%
     dplyr::select(all_of(colsCorrRemoved), "outcome")
   
   gnomad_model_Alph<-fit_model(train_dataset)
@@ -274,10 +274,10 @@ if (opt$k_fold_cross_val == TRUE){
   variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colsCorrRemoved), "outcome"), gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
-    filter(CVinterim_no21_18_no_gnomad)
+    filter(clinvar_interim_test)
   
   test_dataset<-variants %>% 
-    filter(cv18_to_21_CV_test)
+    filter(clinvar_holdout_test)
   
   test_dataset_gnomad<-variants %>% 
     filter(gnomad_holdout_test) 
@@ -322,7 +322,7 @@ if (opt$k_fold_cross_val == TRUE){
                         test_nrow=nrow(test_dataset),
                         test_gnomad_nrow=nrow(test_dataset_gnomad),
                         gnomad_train_nProteins=train_dataset<-length(unique((variants %>% 
-                                                                               filter(train_ds))$Uniprot_acc_split)),
+                                                                               filter(gnomad_train))$Uniprot_acc_split)),
                         interim_nProteins=length(unique(interim_dataset$Uniprot_acc_split)),
                         test_nProteins=length(unique(test_dataset$Uniprot_acc_split)),
                         test_gnomad_nProteins=length(unique(test_dataset_gnomad$Uniprot_acc_split)),

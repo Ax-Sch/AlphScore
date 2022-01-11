@@ -20,7 +20,7 @@ dir.create(opt$out_folder, recursive=TRUE)
 setwd(opt$out_folder)
 
 from_AS_pre<-variants_pre %>%
-  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
+  filter(!(hold_out_genes==TRUE) & gnomadSet==TRUE)%>%
   group_by(from_AS) %>%
   summarise(frac=mean(outcome), num=n())
 
@@ -41,7 +41,7 @@ order_AA_pre<-order_AA_pre$from_AS
 ####recalibrated
 
 from_AS_recal<-variants_recal %>% 
-  filter(!(pure_cv18_to_21_gene==TRUE) & gnomadSet==TRUE)%>%
+  filter(!(hold_out_genes==TRUE) & gnomadSet==TRUE)%>%
   group_by(from_AS) %>%
   summarise(frac=mean(outcome), num=n())
 

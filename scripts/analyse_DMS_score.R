@@ -31,7 +31,7 @@ validation_dataset$DEOGEN2_score_med<-unlist_score(validation_dataset$DEOGEN2_sc
 variants$AlphScore<-variants$predicted_Alph
 ### combine scores on interim dataset:
 interim_dataset<-variants %>% 
-  filter(CVinterim_no21_18_no_gnomad==TRUE)
+  filter(clinvar_interim_test==TRUE)
 
 
 set_of_models<-fit_set_of_models(interim_dataset)

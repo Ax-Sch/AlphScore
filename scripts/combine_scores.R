@@ -21,7 +21,7 @@ variants$multi<-!grepl(fixed("F1-"), variants$pdb_file)
 
 #### Analyse score properties in test data set
 test_dataset<-variants %>% 
-  filter(cv18_to_21_CV_test==TRUE)
+  filter(clinvar_holdout_test==TRUE)
 
 p_mult<-ggplot(test_dataset)+
   geom_histogram(aes(x=predicted_Alph, fill=(outcome ==0)))+
@@ -104,13 +104,13 @@ variants$DEOGEN2_score_med<-unlist_score(variants$DEOGEN2_score, variants$pos_in
 
 ### combine scores on interim dataset:
 train_dataset<-variants %>% 
-  filter(train_ds==TRUE)
+  filter(gnomad_train==TRUE)
 length(unique(train_dataset$Uniprot_acc_split))
 
 length(unique(variants$Uniprot_acc_split))
 
 interim_test_dataset<-variants %>% 
-  filter(CVinterim_no21_18_no_gnomad==TRUE,
+  filter(clinvar_interim_test==TRUE,
          gnomadSet==0)
 length(unique(interim_test_dataset$Uniprot_acc_split))
 
@@ -119,7 +119,7 @@ interim_test_dataset<-predict_set_of_models(set_of_models, interim_test_dataset)
 variants<-predict_set_of_models(set_of_models, variants)
 
 test_dataset<-variants %>% 
-  filter(cv18_to_21_CV_test==TRUE)
+  filter(clinvar_holdout_test==TRUE)
 
 
 rhos<-tibble()
