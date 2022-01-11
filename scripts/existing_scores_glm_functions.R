@@ -97,3 +97,47 @@ prepareVariantsForPrediction<-function(varsToUse,to_AS_table_par){
   colnames(variants_mod)<-gsub("++","..",colnames(variants_mod), fixed=TRUE)
   return(variants_mod)
 }
+
+splitKFold<-function(variants_par, kFold){
+  Uniprot_IDs<-tibble(UP_ids=unique(variants_par$Uniprot_acc_split))
+  Uniprot_IDs$kfold_index<-as.integer(runif(nrow(Uniprot_IDs),1,kFold+1))
+  variants_out<-variants_par %>% 
+    left_join(Uniprot_IDs, by=c("Uniprot_acc_split"="UP_ids"))
+  return(variants_out)
+}
+
+setTrainTestSet<-function(variants_par, k_fold_num){
+  variants_out<-variants_par %>% 
+    mutate(train_genes=(kfold_index != k_fold_num))%>%
+    mutate(hold_out_genes=(kfold_index == k_fold_num)) %>%
+    mutate(gnomad_train=(train_genes & (gnomadSet==1)))
+  
+  train_var_ids<-variants_out %>% 
+    filter(gnomad_train)%>%
+    select(var_id_genomic, var_id_prot)
+  
+  variants_out<-variants_out %>%
+    mutate(clinvar_interim_test = train_genes &
+          (gnomadSet==0) & 
+          !(var_id_prot %in% train_var_ids$var_id_prot) &
+          !(var_id_genomic %in% train_var_ids$var_id_genomic) )
+
+  interim_var_ids<-variants_out %>% 
+    filter(clinvar_interim_test)%>%
+    select(var_id_genomic, var_id_prot)
+  
+  train_and_interim_ids<-rbind(train_var_ids,
+                               interim_var_ids)
+  
+  variants_out<-variants_out %>%
+    mutate(clinvar_holdout_test = hold_out_genes &
+             (gnomadSet==0) & 
+             !(var_id_prot %in% train_and_interim_ids$var_id_prot) &
+             !(var_id_genomic %in% train_and_interim_ids$var_id_genomic) )
+  
+  variants_out<-variants_out %>%
+    mutate(gnomad_holdout_test = hold_out_genes &
+             (gnomadSet==1) & 
+             !(var_id_prot %in% train_and_interim_ids$var_id_prot) &
+             !(var_id_genomic %in% train_and_interim_ids$var_id_genomic) )
+}

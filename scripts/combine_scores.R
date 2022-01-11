@@ -116,7 +116,7 @@ length(unique(interim_test_dataset$Uniprot_acc_split))
 
 set_of_models<-fit_set_of_models(interim_test_dataset)
 interim_test_dataset<-predict_set_of_models(set_of_models, interim_test_dataset)
-variants<-predict_set_of_models(interim_test_dataset, variants)
+variants<-predict_set_of_models(set_of_models, variants)
 
 test_dataset<-variants %>% 
   filter(cv18_to_21_CV_test==TRUE)
@@ -235,3 +235,4 @@ values=c(auc(test_dataset$outcome, test_dataset$predicted_Alph),
          auc(test_dataset$outcome, test_dataset$REVEL_score),
          auc(test_dataset$outcome, test_dataset$glm_AlphRevel),
          auc(test_dataset$outcome, test_dataset$glm_RevelCadd) )
+

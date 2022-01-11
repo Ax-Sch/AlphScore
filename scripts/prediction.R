@@ -3,6 +3,8 @@ library(pROC)
 library(readxl)
 library(caret)
 library(optparse)
+source("scripts/existing_scores_glm_functions.R")
+
 set.seed(1)
 
 option_list = list(
@@ -98,9 +100,8 @@ df_colsCorrRemoved<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_pa
 colsCorrRemoved<-colnames(df_colsCorrRemoved)
 rm(df_colsCorrRemoved)
 rm(dfr)
-rm(df_colsCorrRemoved)
 
-variants<-variants[complete.cases(variants[,c(colnames_new, "outcome", "CADD_raw")]), ]
+variants<-variants[complete.cases(variants[,c(colsCorrRemoved, "outcome", "CADD_raw")]), ]
 gc()
 
 
@@ -190,77 +191,60 @@ if (opt$method_pred=="xgboost"){
 
 if (opt$k_fold_cross_val == TRUE){
   set.seed(1)
-  Uniprot_IDs<-unique(variants$Uniprot_acc_split)
-  Uniprot_IDs<-as_tibble(Uniprot_IDs)
-  Uniprot_IDs$index<-as.integer(runif(nrow(Uniprot_IDs),1,6))
   
-  
+  # splitKFold function from existing_scores_glm_functions.R
+  variants<-splitKFold(variants, 5)
+    
   glm_cv<-data.frame()
-  
-  cc<-complete.cases(variants[, c(colnames_new, "outcome")])
-  variants_filtered<-variants[cc, ]
-  
-  for (h in unique(Uniprot_IDs$index)) {
-    non_h_gnomad_train<-variants_filtered %>% filter(!Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #non_h = every Uniprot_acc_split with index = non-h (if h=1 then non_h=2,3,4,5 etc.); gnomadSet= 1 --> gnomad as training set
-      filter(gnomadSet==1) 
-    non_h_cv_test <- variants_filtered %>% filter(!Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #non_h = every Uniprot_acc_split with index = non-h (if h=1 then 2,3,4,5 etc.); gnomadSet= 0 --> cv (ClinVar) as test set
-      filter(gnomadSet == 0,
-             !var_id_genomic %in% non_h_gnomad_train$var_id_genomic)%>%
-      filter(!var_id_prot %in% non_h_gnomad_train$var_id_prot,
-             !var_id_genomic %in% non_h_gnomad_train$var_id_genomic)
+  for (h in unique(variants$kfold_index)) {
+    variants<-setTrainTestSet(variants, h)
     
-    h_cv_test<-variants_filtered %>% filter(Uniprot_acc_split %in% Uniprot_IDs[Uniprot_IDs$index==h,]$value) %>% #h = every Uniprot_acc_split with index = current h (if h=1 then 1); gnomadSet= 0 --> cv as test set
-      filter(gnomadSet == 0)%>%
-      filter(!var_id_prot %in% non_h_gnomad_train$var_id_prot,
-             !var_id_genomic %in% non_h_gnomad_train$var_id_genomic,
-             !var_id_prot %in% non_h_cv_test$var_id_prot,
-             !var_id_genomic %in% non_h_cv_test$var_id_genomic)
+    gnomad_train<-variants %>% filter(gnomad_train)
+    
+    gnomad_model_Alph<-fit_model(gnomad_train %>% dplyr::select(all_of(colsCorrRemoved)))
+    variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph) #prediction with model = non_h_gnomad_Alph and test = non_h_cv_test: predicted_non_h_gnomad_Alph_non_h_cv_test
     
     
-    gnomad_model_Alph<-fit_model(non_h_gnomad_train %>% dplyr::select(all_of(colnames_new)))
-    non_h_cv_test$predicted_Alph<-predict_model(non_h_cv_test %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph) #prediction with model = non_h_gnomad_Alph and test = non_h_cv_test: predicted_non_h_gnomad_Alph_non_h_cv_test
-    non_h_gnomad_train$predicted_Alph<-predict_model(non_h_gnomad_train %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph) 
+    glm_AlphCadd<- glm(outcome ~ . , family=binomial(link='logit'), #glm model with non_h_cv, inclusion of CADD score; predicted_non_h_gnomad_Alph_non_h_cv_test
+                            data=variants %>% filter(clinvar_interim_test) %>% 
+                            dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
+                            filter(complete.cases(.)))
     
-    non_h_cv_model_glm<- glm(outcome ~ . , family=binomial(link='logit'), #glm model with non_h_cv, inclusion of CADD score; predicted_non_h_gnomad_Alph_non_h_cv_test
-                             data=non_h_cv_test %>% dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
-                               filter(complete.cases(.)))
+    variants$glm_AlphCadd <-predict(glm_AlphCadd, variants)#prediction with model = non_h_cv_model_glm, test = : predicted__non_h_cv_glm_h_cv_test
     
-    h_cv_test$predicted_Alph <- predict_model(h_cv_test %>% dplyr::select(all_of(colnames_new)), gnomad_model_Alph) #prediction with model = non_h_gnomad_Alph and test = h_cv_test: predicted_non_h_gnomad_Alph_h_cv_test
-    h_cv_test$predicted_glm <-predict(non_h_cv_model_glm, h_cv_test)#prediction with model = non_h_cv_model_glm, test = : predicted__non_h_cv_glm_h_cv_test
-    
+    clinvar_interim_test<-variants %>% filter(clinvar_interim_test)
+    clinvar_holdout_test<-variants %>% filter(clinvar_holdout_test)
     
     save_tibble <- rbind(save_tibble, 
-                         tibble(auc_Alph_non_h_gnomAD=roc(non_h_gnomad_train$outcome, non_h_gnomad_train$predicted_Alph)$auc, 
+                         tibble(auc_Alph_train_gnomAD=roc(gnomad_train$outcome, gnomad_train$predicted_Alph)$auc, 
                                 Alph_OOB=ifelse((opt$method_pred=="randomforest"), gnomad_model_Alph$prediction.error, NA),
-                                auc_CADD_non_h_CV=roc(non_h_cv_test$outcome, non_h_cv_test$CADD_raw)$auc, 
-                                auc_Alph_non_h_CV=roc(non_h_cv_test$outcome, non_h_cv_test$predicted_Alph)$auc,
-                                auc_CADD_h_CV=roc(h_cv_test$outcome, h_cv_test$CADD_raw)$auc, 
-                                auc_Alph_h_CV=roc(h_cv_test$outcome, h_cv_test$predicted_Alph)$auc, 
-                                auc_glm_h_CV=roc(h_cv_test$outcome, h_cv_test$predicted_glm)$auc, 
+                                auc_CADD_interim_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw)$auc, 
+                                auc_Alph_interim_CV=roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph)$auc,
+                                auc_CADD_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw)$auc, 
+                                auc_Alph_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph)$auc, 
+                                auc_glm_test_CV=roc(clinvar_holdout_test$outcome, clinvar_holdout_test$glm_AlphCadd)$auc, 
                                 sample_num=h,
-                                non_h_gnomad_train_nrow=nrow(non_h_gnomad_train),
-                                non_h_cv_test_nrow=nrow(non_h_cv_test),
-                                h_cv_test_nrow=nrow(h_cv_test),
-                                glm_alpha=non_h_cv_model_glm$coefficients[2],
-                                glm_CADD=non_h_cv_model_glm$coefficients[3],
+                                gnomad_train_nrow=nrow(gnomad_train),
+                                interim_cv_nrow=nrow(clinvar_interim_test),
+                                test_cv_nrow=nrow(clinvar_holdout_test),
                                 condition=opt$prefix ))
     
     
-    plot_auc_CADD_non_h <- plot(roc(non_h_cv_test$outcome, non_h_cv_test$CADD_raw), print.auc = TRUE, col = "red")
-    plot_auc_Alph_non_h<- plot(roc(non_h_cv_test$outcome, non_h_cv_test$predicted_Alph), print.auc = TRUE, 
+   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$CADD_raw), print.auc = TRUE, col = "red")
+   plot(roc(clinvar_interim_test$outcome, clinvar_interim_test$predicted_Alph), print.auc = TRUE, 
                                col = "green", print.auc.y = .2, add = TRUE)
     
-    plot_auc_CADD_h <- plot(roc(h_cv_test$outcome, h_cv_test$CADD_raw), print.auc = TRUE, col = "red", add=FALSE)
-    plot_auc_Alph_h<- plot(roc(h_cv_test$outcome, h_cv_test$predicted_glm), print.auc = TRUE, 
+   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$CADD_raw), print.auc = TRUE, col = "red", add=FALSE)
+   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$glm_AlphCadd), print.auc = TRUE, 
                            col = "blue", print.auc.y = .2, add = TRUE)
-    plot_auc_glm_h <- plot(roc(h_cv_test$outcome, h_cv_test$predicted_Alph), print.auc = TRUE, 
+   plot(roc(clinvar_holdout_test$outcome, clinvar_holdout_test$predicted_Alph), print.auc = TRUE, 
                            col = "green", print.auc.y = .4, add = TRUE)
   }
   
 }else if (opt$full_model==TRUE){
   var_full_model<-variants %>% 
     filter(gnomadSet==1)%>%
-    dplyr::select(all_of(colnames_new), "outcome") 
+    dplyr::select(all_of(colsCorrRemoved), "outcome") 
 
   gnomad_model_Alph<-fit_model(var_full_model)
   var_full_model$predicted_Alph<-predict_model(var_full_model, gnomad_model_Alph)
@@ -282,12 +266,12 @@ if (opt$k_fold_cross_val == TRUE){
 }else{
   train_dataset<-variants %>% 
     filter(train_ds)%>%
-    dplyr::select(all_of(colnames_new), "outcome")
+    dplyr::select(all_of(colsCorrRemoved), "outcome")
   
   gnomad_model_Alph<-fit_model(train_dataset)
   
   train_dataset$predicted_Alph<-predict_model(train_dataset, gnomad_model_Alph)
-  variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colnames_new), "outcome"), gnomad_model_Alph)
+  variants$predicted_Alph<-predict_model(variants %>% dplyr::select(all_of(colsCorrRemoved), "outcome"), gnomad_model_Alph)
   
   interim_dataset<-variants %>% 
     filter(CVinterim_no21_18_no_gnomad)
@@ -295,10 +279,8 @@ if (opt$k_fold_cross_val == TRUE){
   test_dataset<-variants %>% 
     filter(cv18_to_21_CV_test)
   
-  var_ids_train<- (variants %>% filter(train_ds))$var_id_genomic
   test_dataset_gnomad<-variants %>% 
-    filter(pure_cv18_to_21_gene, gnomadSet == 1) %>%
-    filter(!var_id_genomic %in% var_ids_train)
+    filter(gnomad_holdout_test) 
   
   roc_rose <- plot(roc(train_dataset$outcome, train_dataset$predicted_Alph), print.auc = TRUE, col = "blue")
   legend(0.3, 0.3, legend=c("Alph"),
@@ -360,7 +342,7 @@ if (opt$method_pred %in% c("randomforest", "extratree")){
 
 if (opt$write_model){
   save_model(gnomad_model_Alph, file=paste0(opt$prefix,"_written_full_model.RData"))
-  saveRDS(colnames_new, file=paste0(opt$prefix,"_colnames_to_use.RData"))
+  saveRDS(colsCorrRemoved, file=paste0(opt$prefix,"_colnames_to_use.RData"))
   saveRDS(toAS_properties,file=paste0(opt$prefix,"_toAS_properties.RData") )
 }
 
