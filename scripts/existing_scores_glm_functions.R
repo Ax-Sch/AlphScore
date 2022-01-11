@@ -82,3 +82,18 @@ predict_set_of_models<-function(set_of_models, variants_to_predict){
   return(variants_to_predict)
 }
 
+
+prepareVariantsForPrediction<-function(varsToUse,to_AS_table_par){
+  to_AS_table_mod<-to_AS_table_par
+  colnames(to_AS_table_mod) <- paste(colnames(to_AS_table_mod), "toAS", sep = "_")
+  
+  variants_mod<-varsToUse %>% 
+    left_join(to_AS_table_mod, by=c("to_AS"="to_AS_toAS"))%>%
+    mutate(to_AS=toupper(to_AS))%>%
+    mutate(from_AS=RESN)%>%
+    mutate(var_id_genomic=paste(`#chr`, `pos(1-based)`, sep=":"))%>%
+    mutate(var_id_prot=paste(Uniprot_acc_split, RESI, sep=":"))
+  
+  colnames(variants_mod)<-gsub("++","..",colnames(variants_mod), fixed=TRUE)
+  return(variants_mod)
+}

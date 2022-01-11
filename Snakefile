@@ -466,9 +466,13 @@ rule fit_models_w_final_settings_from_grid_search:
 rule predict_Alphscore_protein_level:
 	input:
 		csv="data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz",
-		model="data/prediction_final/final_regular_written_full_model.RData",
-		to_AS="data/prediction_final/final_regular_toAS_properties.RData",
-		colnames="data/prediction_final/final_regular_colnames_to_use.RData",
+		model_reg="data/prediction_final/final_regular_written_full_model.RData",
+		to_AS_reg="data/prediction_final/final_regular_toAS_properties.RData",
+		colnames_reg="data/prediction_final/final_regular_colnames_to_use.RData",
+		model_null="data/prediction_final/final_NullModel_written_full_model.RData",
+		to_AS_null="data/prediction_final/final_NullModel_toAS_properties.RData",
+		colnames_null="data/prediction_final/final_NullModel_colnames_to_use.RData",
+		
 	output:
 		"data/predicted_prots/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
 	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
@@ -478,10 +482,13 @@ rule predict_Alphscore_protein_level:
 		"""
 		Rscript scripts/predict_w_ranger_model.R \
 		--csv_location {input.csv} \
-		--model_location {input.model} \
+		--model_location {input.model_reg} \
+		--use_cols_file {input.colnames_reg} \
+		--toAS_properties {input.to_AS_reg} \
+		--model_location_null {input.model_null} \
+		--use_cols_file_null {input.colnames_null} \
+		--toAS_properties_null {input.to_AS_null} \
 		--output_file {output} \
-		--use_cols_file {input.colnames} \
-		--toAS_properties {input.to_AS} \
 		--reduced {wildcards.reduced}
 		"""
 
@@ -511,7 +518,7 @@ rule analyse_performance_on_DMS_data:
 		out_folder="data/analyse_score/"
 	shell:
 		"""
-		Rscript scripts/analyse_score.R \
+		Rscript scripts/analyse_DMS_score.R \
 		--variants {input.test_dataset} \
 		--validation_set {input.compiled} \
 		--out_folder {params.out_folder}
@@ -553,7 +560,7 @@ rule properties_score:
 		Rscript scripts/Fig_feat_imp.R \
 		--input_impurity {input.impurity} \
 		--input_permutation {input.permutation} \
-		--prefix pre_final_model \
+		--prefix pre_final_model_regular \
 		--out_folder {params.out_folder} 
 
 		Rscript scripts/Fig_auc_cv.R \

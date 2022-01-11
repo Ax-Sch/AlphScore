@@ -99,10 +99,8 @@ ggsave(filename="p_resnum_pred.pdf", p_resnum_pred)
 
 variants$AlphScore<-variants$predicted_Alph
 
-
-
 variants$pos_in_VEP_and_Uniprot<-get_index_col(variants)
-variants$pos_in_VEP_and_Uniprot<-unlist_score(variants$SIFT_score, variants$pos_in_VEP_and_Uniprot)
+variants$DEOGEN2_score_med<-unlist_score(variants$DEOGEN2_score, variants$pos_in_VEP_and_Uniprot)
 
 ### combine scores on interim dataset:
 train_dataset<-variants %>% 
@@ -118,7 +116,7 @@ length(unique(interim_test_dataset$Uniprot_acc_split))
 
 set_of_models<-fit_set_of_models(interim_test_dataset)
 interim_test_dataset<-predict_set_of_models(set_of_models, interim_test_dataset)
-variants<-predict_set_of_models(abc, variants)
+variants<-predict_set_of_models(interim_test_dataset, variants)
 
 test_dataset<-variants %>% 
   filter(cv18_to_21_CV_test==TRUE)

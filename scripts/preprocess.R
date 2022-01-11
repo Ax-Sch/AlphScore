@@ -3,6 +3,7 @@ library(VennDiagram)
 futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # prevent VennDiagram to write lots of log messages
 library(data.table)
 library(optparse)
+source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
@@ -14,22 +15,16 @@ option_list = list(
 opt = parse_args(OptionParser(option_list=option_list))
 
 variants<-read_csv(opt$input)
-
 to_AS_table<-read_tsv("resources/to_AS_table.txt")
 cv_ids18<-read_tsv("resources/clinvar_var_ids_2018.txt", col_names=c("id"), col_types=cols("id"= col_character())) 
 cv_ids21<-read_tsv("resources/clinvar_var_ids_2021.txt", col_names=c("id"), col_types=cols("id"= col_character()))
 
 dir.create(dirname(opt$output))
 setwd(dirname(opt$output))
+prepareVariantsForPrediction()
 
-colnames(to_AS_table) <- paste(colnames(to_AS_table), "toAS", sep = "_")
-
-variants<-variants %>% 
-  left_join(to_AS_table, by=c("to_AS"="to_AS_toAS"))%>%
-  mutate(to_AS=toupper(to_AS))%>%
-  mutate(from_AS=RESN)%>%
-  mutate(var_id_genomic=paste(`#chr`, `pos(1-based)`, sep=":"))%>%
-  mutate(var_id_prot=paste(Uniprot_acc_split, RESI, sep=":"))
+# preprocess variants (see sourced file)
+variants<-prepareVariantsForPrediction(variants, to_AS_table)
 
 # check for duplicates
 n_occur <- data.frame(table(paste(variants$var_id_genomic, variants$gnomadSet)))
@@ -94,9 +89,6 @@ venn.diagram(x=list(CVinterim_no21_18_no_gnomad_temp$var_id_prot, cv18_to_21_noC
              category.names = c("CVinterim_no21_18_no_gnomad_temp" , "cv18_to_21_noCV_just_gnomad_temp", "cv18_to_21_CV_test_temp", "potential gnomad train"), filename = 'Train_test_sets_prot.png')
 
 
-colnames(variants)<-gsub("++","..",colnames(variants), fixed=TRUE)
 gc()
 
 write_csv(variants, file=basename(opt$output))
-
-

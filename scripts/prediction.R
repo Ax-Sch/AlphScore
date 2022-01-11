@@ -61,6 +61,7 @@ setwd(opt$out_folder)
 
 pdf(file=paste0(opt$prefix, "_RPlots.pdf"))
 
+# calculate average values of add_to_AS column for amino acids of training set
 sel_vars_to<-(colnames_usage %>% filter(!is.na(add_to_AS)))$value
 toAS_properties<-variants  %>%
   filter(gnomadSet == 1, b_factor>opt$b_factor_param)%>%
@@ -70,15 +71,17 @@ toAS_properties<-variants  %>%
   summarize_all(mean)
 colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 
+# add these toAS values to the data set
 variants<-variants%>%
   left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))
+colsnames_toAS<-colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])
+variants[, colsnames_toAS]<-  variants[, sel_vars_to] - 
+  variants[, colsnames_toAS]
 
-variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]<-
-  variants[, sel_vars_to] - 
-  variants[, colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])]
-
-colnames_prediction<-c(colnames(toAS_properties %>% dplyr::select(-from_AS_toAS)), 
-                       (colnames_usage %>% filter(!is.na(for_prediction)))$value)
+# remove correlated columns in the data set
+colnames_prediction<-c(colsnames_toAS, 
+                       (colnames_usage %>% 
+                          filter(!is.na(for_prediction)))$value)
 
 variants_pred<-variants %>% 
   dplyr::select(c(colnames_prediction, "outcome"))
@@ -91,9 +94,11 @@ correlationMatrix <- cor(dfr,use="complete.obs")
 
 set.seed(1)
 # prune correltated variables 
-cols_removed<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
-colnames_new<-colnames(cols_removed)
-rm(variants_pred)
+df_colsCorrRemoved<-dfr[, -(findCorrelation(correlationMatrix, cutoff=opt$cor_param))]
+colsCorrRemoved<-colnames(df_colsCorrRemoved)
+rm(df_colsCorrRemoved)
+rm(dfr)
+rm(df_colsCorrRemoved)
 
 variants<-variants[complete.cases(variants[,c(colnames_new, "outcome", "CADD_raw")]), ]
 gc()
