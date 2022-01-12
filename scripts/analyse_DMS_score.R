@@ -6,7 +6,7 @@ source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
-  make_option(c("-t", "--variants"), type="character", default="data/prediction/base_model_variants.csv.gz", 
+  make_option(c("-t", "--variants"), type="character", default="data/prediction_final/pre_final_model_regular_variants.csv.gz", 
               help="csv.gz file, test dataset"),
   make_option(c("-v", "--validation_set"), type="character", default="data/validation_set/validation_set_w_AlphScore.csv.gz", 
               help="Validation set"),

@@ -18,7 +18,7 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 
 
 if testing == True:
-	grid_search_table=grid_search_table.iloc[[0,5]] # testing
+	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
 	relevant_alphafold_models.sort()
 	relevant_alphafold_models=relevant_alphafold_models[0:1600]
 	relevant_uniprot_ids.sort()
@@ -411,16 +411,16 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction_final/final{FeatureSetToTake}_permutation_importance.tsv",
 		"data/prediction_final/pre_final_model{FeatureSetToTake}_variants.csv.gz",
 		"data/prediction_final/pre_final_model_k_fold{FeatureSetToTake}_results.tsv"
-	resources: cpus=16, mem_mb=80000, time_job=480
+	resources: cpus=14, mem_mb=70000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/prediction_final/"
 	run:
 		import pandas as pd
 		import os
-		
+
 		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
-		grid_results.sort_values(["auc_Alph_test_CV","auc_Alph_interim_CV"])
+		grid_results=grid_results.sort_values(["auc_Alph_test_CV","auc_Alph_interim_CV"])
 		best_model=grid_results.iloc[-1]
 		
 		parameters=grid_search_table[grid_search_table["prefix"]==best_model.condition]

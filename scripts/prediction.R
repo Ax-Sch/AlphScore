@@ -76,12 +76,12 @@ colnames(toAS_properties)<-paste0(colnames(toAS_properties), "_toAS")
 # add these toAS values to the data set
 variants<-variants%>%
   left_join(toAS_properties, by=c("from_AS"="from_AS_toAS"))
-colsnames_toAS<-colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])
-variants[, colsnames_toAS]<-  variants[, sel_vars_to] - 
-  variants[, colsnames_toAS]
+colnames_toAS<-colnames(toAS_properties[,names(toAS_properties) != "from_AS_toAS"])
+variants[, colnames_toAS]<-  variants[, sel_vars_to] - 
+  variants[, colnames_toAS]
 
 # remove correlated columns in the data set
-colnames_prediction<-c(colsnames_toAS, 
+colnames_prediction<-c(colnames_toAS, 
                        (colnames_usage %>% 
                           filter(!is.na(for_prediction)))$value)
 

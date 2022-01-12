@@ -48,15 +48,16 @@ toAS_properties_null<-readRDS(opt$toAS_properties_null)
 
 # function to add to AS properties
 addToAS<-function(variants_par, toAsProp, colToUse){
-variants_mod<-variants
-variants_mod<-variants_mod%>%
+  variants_mod<-variants
+  variants_mod<-variants_mod%>%
     left_join(toAsProp, by=c("from_AS"="from_AS_toAS"))
   
-  sel_vars_to<-colnames(toAsProp)
-  sel_vars_to<-sel_vars_to[sel_vars_to!="from_AS_toAS"]
-  sel_vars_from<-str_replace(sel_vars_to, fixed("_toAS"),"")
+  colnames_toAS<-colnames(toAsProp)
+  colnames_toAS<-colnames_toAS[colnames_toAS!="from_AS_toAS"]
   
-  variants_mod[, sel_vars_from]<-variants_mod[, sel_vars_to] - variants_mod[, sel_vars_from]
+  sel_vars_to<-str_replace(colnames_toAS, fixed("_toAS"),"")
+  
+  variants_mod[, colnames_toAS]<-variants_mod[, sel_vars_to] - variants_mod[, colnames_toAS]
   colToUse_mod<-colToUse[colToUse!="outcome"]
   
   return(variants_mod[, colToUse_mod])

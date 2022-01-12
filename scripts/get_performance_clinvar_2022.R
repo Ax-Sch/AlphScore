@@ -67,6 +67,8 @@ for (i in unique(alphafold_pre_calculated_w_CV2022$CrossValGroup)){
                    col = "blue", print.auc.y = .2, add = TRUE)
   roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphRevel), print.auc = TRUE, 
                    col = "red", print.auc.y = .3, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
+                   col = "grey", print.auc.y = .1, add = TRUE)
   
   roc_rose <- plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
                    col = "black", print.auc.y = .4)
@@ -74,6 +76,8 @@ for (i in unique(alphafold_pre_calculated_w_CV2022$CrossValGroup)){
                    col = "blue", print.auc.y = .2, add = TRUE)
   roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphCadd), print.auc = TRUE, 
                    col = "green", print.auc.y = .6, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
+                   col = "grey", print.auc.y = .1, add = TRUE)
   
   roc_rose <- plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
                    col = "black", print.auc.y = .4)
@@ -81,9 +85,12 @@ for (i in unique(alphafold_pre_calculated_w_CV2022$CrossValGroup)){
                    col = "blue", print.auc.y = .2, add = TRUE)
   roc_rose <- plot(roc(testSet$outcome, testSet$glm_AlphDeogen), print.auc = TRUE, 
                    col = "green", print.auc.y = .6, add = TRUE)
+  roc_rose <- plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
+                   col = "grey", print.auc.y = .1, add = TRUE)
   
   score_performance_tbl <- rbind(score_performance_tbl, 
                        tibble(auc_Alph=roc(testSet$outcome, testSet$AlphScore)$auc, 
+                              auc_Alph_null=roc(testSet$outcome, testSet$Alph_null)$auc, 
                               auc_CADD=roc(testSet$outcome, testSet$CADD_raw)$auc, 
                               auc_REVEL=roc(testSet$outcome, testSet$REVEL_score)$auc,
                               auc_DEOGEN2=roc(testSet$outcome, testSet$DEOGEN2_score_med)$auc, 
