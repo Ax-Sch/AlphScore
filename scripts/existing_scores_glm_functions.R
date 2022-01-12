@@ -102,7 +102,7 @@ splitKFold<-function(variants_par, kFold){
   Uniprot_IDs<-tibble(UP_ids=unique(variants_par$Uniprot_acc_split))
   Uniprot_IDs$kfold_index<-as.integer(runif(nrow(Uniprot_IDs),1,kFold+1))
   variants_out<-variants_par %>% 
-    left_join(Uniprot_IDs, by=c("Uniprot_acc_split"="UP_ids"))
+    left_join(Uniprot_IDs, by=c("Uniprot_acc_split"="UP_ids"), suffix=c("X",""))
   return(variants_out)
 }
 

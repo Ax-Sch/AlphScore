@@ -20,9 +20,9 @@ grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", se
 if testing == True:
 	grid_search_table=grid_search_table.iloc[[0,5]] # testing
 	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:800]
+	relevant_alphafold_models=relevant_alphafold_models[0:1600]
 	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:800]
+	relevant_uniprot_ids=relevant_uniprot_ids[0:1600]
 
 
 rule all:
@@ -400,7 +400,7 @@ rule join_grid_search_files:
 
 rule fit_models_w_final_settings_from_grid_search:
 	input:
-		excel="resources/available_colnames{FeatureSetToTake}.xlsx",
+		excel="resources/available_colnames_regular.xlsx",
 		csv="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
 		grid_res="data/joined_grid/joined_grid.tsv"
 	output:
@@ -429,10 +429,13 @@ rule fit_models_w_final_settings_from_grid_search:
 		print(best_model)
 		
 		base_command=('Rscript scripts/prediction.R ' +
-			' --excel_location ' + input[0] + 
 			' --csv_location ' + input[1] + 
 			' --out_folder ' + params[1] +
 			' ' + ' '.join(parameters.iloc[0,1:].to_list()) )
+		
+		# overwrite excel location if NullModel should be fit:
+		if wildcards[0] == "_NullModel":
+			base_command = base_command + ' --excel_location resources/available_colnames_NullModel.xlsx'
 		
 		print("base command:")
 		print(base_command)

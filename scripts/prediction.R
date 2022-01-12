@@ -202,10 +202,9 @@ if (opt$k_fold_cross_val == TRUE){
     gnomad_train<-variants %>% filter(gnomad_train)
     
     gnomad_model_Alph<-fit_model(gnomad_train %>% dplyr::select(all_of(colsCorrRemoved)))
-    variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph) #prediction with model = non_h_gnomad_Alph and test = non_h_cv_test: predicted_non_h_gnomad_Alph_non_h_cv_test
+    variants$predicted_Alph<-predict_model(variants, gnomad_model_Alph) 
     
-    
-    glm_AlphCadd<- glm(outcome ~ . , family=binomial(link='logit'), #glm model with non_h_cv, inclusion of CADD score; predicted_non_h_gnomad_Alph_non_h_cv_test
+    glm_AlphCadd<- glm(outcome ~ . , family=binomial(link='logit'),
                             data=variants %>% filter(clinvar_holdout_test) %>% 
                             dplyr::select(outcome, predicted_Alph, CADD_raw) %>%
                             filter(complete.cases(.)))
@@ -214,6 +213,7 @@ if (opt$k_fold_cross_val == TRUE){
     
     clinvar_holdout_test<-variants %>% filter(clinvar_holdout_test)
     clinvar_interim_test<-variants %>% filter(clinvar_interim_test)
+    gnomad_train<-variants %>% filter(gnomad_train)
     
     save_tibble <- rbind(save_tibble, 
                          tibble(auc_Alph_train_gnomAD=roc(gnomad_train$outcome, gnomad_train$predicted_Alph)$auc, 
