@@ -1,6 +1,6 @@
 # AlphScore
 
-This code belongs to the project "Predicting the pathogenicity of missense variants based on AlphaFold-derived features". If you simply would like to obtain pre-calculated scores, please visit XXX.
+This code belongs to the project "Predicting the pathogenicity of missense variants based on AlphaFold-derived features". If you simply would like to obtain pre-calculated scores, please visit https://uni-bonn.sciebo.de/s/iE2GcXYUPoYgWHl and download the file all_possible_values_concat.csv.gz. 
 
 ### Short workflow description
 
@@ -30,4 +30,6 @@ Feature extraction can be run using the follwoing commands:
 snakemake --cores [number of cores you have]
 
 ```
-The snakemake pipeline will execute >100,000 jobs. For testing, you can set the variable testing=True at the beginning of the pipeline. This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. If you have any questions just message me.
+The snakemake pipeline will execute >100,000 jobs. For testing, you can set the variable testing=True at the beginning of the pipeline. You could also skip the feature extraction part by downloading the file gnomad_extracted_prepro_rec.csv.gz (https://uni-bonn.sciebo.de/s/iE2GcXYUPoYgWHl) and placing it into the directory data/train_testset1/. Then you could fit the machine learning models yourself and try to find an even better model.
+
+This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. If you have any questions just message me.

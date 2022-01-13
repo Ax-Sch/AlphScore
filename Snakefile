@@ -24,24 +24,19 @@ relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 rule all:
 	input:
-		#expand("data/pdb_features/{pdb}/b_factors.csv", pdb=relevant_alphafold_models),
-		#expand("data/network/{pdb_name}_combined_w_network_and_dbnsfp.csv.gz", pdb_name=relevant_alphafold_models),
-		#expand("data/split_dbNSFP/chr{chr}_ok",chr=chroms),
-		"data/train_testset1/gnomad_extracted.csv.gz",
-		"data/merge_all/all_possible_values_concat.csv.gz",
+		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 		"data/joined_grid/joined_grid.tsv",
 		"data/prediction_final/final_regular_written_full_model.RData",
+		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
-#		"data/combine_scores/aucs.pdf",
 		"data/plot_k/final_regular_importance_permutation.pdf",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
-		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
-		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
-		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf"
+		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
+		"data/merge_all/all_possible_values_concat.csv.gz",
 
 
 rule download_dbNSFP_AlphaFold_files:
