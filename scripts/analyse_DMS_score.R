@@ -31,7 +31,7 @@ validation_dataset$DEOGEN2_score_med<-unlist_score(validation_dataset$DEOGEN2_sc
 variants$AlphScore<-variants$predicted_Alph
 ### combine scores on interim dataset:
 interim_dataset<-variants %>% 
-  filter(clinvar_interim_test==TRUE)
+  filter(gnomadSet==0)
 
 
 set_of_models<-fit_set_of_models(interim_dataset)
@@ -40,18 +40,19 @@ validation_dataset<-predict_set_of_models(set_of_models, validation_dataset)
 ###### validation Dataset
 
 variants<-variants%>% 
-  mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))
+  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))
 
 validation_dataset<-validation_dataset %>%
-  mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
+  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))%>%
   filter(!ID %in% variants$ID)
 
-SCORES<-c("AlphScore", "CADD_raw", "glm_AlphCadd", 
+SCORES<-c("Alph_null","AlphScore", "CADD_raw", "glm_AlphCadd", 
           "REVEL_score", "glm_AlphRevel", "glm_RevelCadd", 
           "DEOGEN2_score_med", "glm_AlphDeogen", "glm_CaddDeogen", 
           "glm_AlphCaddDeogen", "glm_DeogenRevel","glm_AlphDeogenRevel",
           "glm_CaddDeogenRevel")
 spearmans_joined<-tibble()
+
 for (un_ID in unique(validation_dataset$Uniprot_acc_split)){
   temp_values_joined<-validation_dataset %>% 
     filter(Uniprot_acc_split==un_ID)
@@ -96,15 +97,22 @@ spearmans_joined_summarized<-spearmans_joined %>%
   summarise(mean_abs_correlation=mean(abs(spearm), na.rm = TRUE))%>%
   mutate(method=factor(method, levels= SCORES)) 
 
+spearmans_joined<-spearmans_joined%>%
+  mutate(method=factor(method, levels=c("Alph_null","AlphScore","CADD_raw","DEOGEN2_score_med","REVEL_score","glm_AlphCadd","glm_AlphDeogen",
+                                        "glm_AlphRevel","glm_CaddDeogen","glm_DeogenRevel","glm_RevelCadd","glm_AlphDeogenRevel","glm_AlphCaddDeogen","glm_CaddDeogenRevel")))
+
 plot_spearmans<-ggplot(spearmans_joined, aes(x=method, y=abs(spearm)))+
   stat_summary(fun.y = mean, geom = "bar") + 
   stat_summary(fun.data = mean_se, geom = "errorbar", width=0.4)+
-  geom_jitter(width=0.15)+
-  theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=1))
+  geom_jitter(width=0.15, color="blue4", alpha=0.6, size=1)+
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
+                          axis.text.y = element_text(color="black", size=10))+
+  labs(x = "")+
+  labs(y = "absolute Spearman correlation", size=12)
 
 plot_spearmans
-ggsave(filename= "spearman_plot.pdf", plot=plot_spearmans, height=8, width=6)
+ggsave(filename= "spearman_plot.pdf", plot=plot_spearmans, height=5, width=4)
 
 plot_spearmans<-ggplot(spearmans_joined, aes(x=method, y=abs(spearm)))+
   stat_summary(fun.y = mean, geom = "bar") + 
@@ -112,10 +120,11 @@ plot_spearmans<-ggplot(spearmans_joined, aes(x=method, y=abs(spearm)))+
   geom_jitter(width=0.15, aes(color=protein_mean_b_factor, fill=protein_length), size=2, shape=21)+
   scale_color_gradient(low="red", high="blue")+
   theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
+        axis.text.y = element_text(color="black", size=10))
 
 plot_spearmans
-ggsave(filename= "spearman_plot_colored.pdf", plot=plot_spearmans, height=8, width=8)
+ggsave(filename= "spearman_plot_colored.pdf", plot=plot_spearmans, height=5.5, width=4.5)
 
 table_spearm<-spearmans_joined %>% 
   mutate(abs_spearman=abs(spearm))%>%
