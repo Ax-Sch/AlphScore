@@ -6,7 +6,7 @@ This code belongs to the project "Improving pathogenicity prediction of missense
 
 Extracts features of each amino acid from AlphaFold2 structures ( https://alphafold.ebi.ac.uk/ ) using a snakemake workflow. For feature extraction the tools DSSP, FEATURE, protinter ( https://github.com/maxibor/protinter ) and the python modules biopython, biopandas and networkx are used. Finally, the generated features are added to the data of dbNSFP 4.2 and dbNSFP is used to extract variants relevant for the analysis part (see below).
 Workflow:
-![alt text](https://github.com/Ax-Sch/AlphScore/blob/main/Overview.png?raw=true)
+![alt text](https://github.com/Ax-Sch/AlphScore/blob/main/dag.pdf?raw=true)
 
 ### analysis:
 

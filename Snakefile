@@ -38,7 +38,7 @@ rule all:
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
-		"data/combine_scores/aucs.pdf",
+#		"data/combine_scores/aucs.pdf",
 		"data/plot_k/final_regular_importance_permutation.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
@@ -334,7 +334,7 @@ rule preprocess_clinvar_gnomad_set:
 		--undersample FALSE
 		"""
 
-rule get_properties_clinvar_gnomad_set:
+rule check_properties_clinvar_gnomad_set:
 	input:
 		preprocessed="data/train_testset1/gnomad_extracted_prepro.csv.gz",
 		recalibrated="data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
@@ -510,7 +510,7 @@ rule create_validation_set_DMS:
 		Rscript scripts/compile_scores.R
 		"""
 
-rule analyse_performance_on_DMS_data:
+rule evaluate_performance_on_DMS_data:
 	input:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
 		test_dataset="data/prediction_final/pre_final_model_regular_variants.csv.gz"
@@ -528,25 +528,25 @@ rule analyse_performance_on_DMS_data:
 		--out_folder {params.out_folder}
 		"""
 
-rule combine_alphafold_w_existing_scores:
-	input:
-		variant_dataset="data/prediction_final/pre_final_model_regular_variants.csv.gz"
-	output:
-		one_plot="data/combine_scores/aucs.pdf",
-	resources: cpus=1, mem_mb=40000, time_job=480
-	params:
-		partition=config["short_partition"],
-		out_folder="data/combine_scores/"
-	shell:
-		"""
-		Rscript scripts/combine_scores.R \
-		--variants {input.variant_dataset} \
-		--out_folder {params.out_folder}
-		"""
+#rule combine_alphafold_w_existing_scores:
+#	input:
+#		variant_dataset="data/prediction_final/pre_final_model_regular_variants.csv.gz"
+#	output:
+#		one_plot="data/combine_scores/aucs.pdf",
+#	resources: cpus=1, mem_mb=40000, time_job=480
+#	params:
+#		partition=config["short_partition"],
+#		out_folder="data/combine_scores/"
+#	shell:
+#		"""
+#		Rscript scripts/combine_scores.R \
+#		--variants {input.variant_dataset} \
+#		--out_folder {params.out_folder}
+#		"""
 
 
 		
-rule properties_score:
+rule plot_feature_importance:
 	input:
 		impurity="data/prediction_final/final_regular_impurity_importance.tsv",
 		permutation="data/prediction_final/final_regular_permutation_importance.tsv",
@@ -573,7 +573,7 @@ rule properties_score:
 		"""
 
 
-rule combine_proteins_level_w_Alphscore_to_one_file:
+rule merge_proteins_w_Alph_predictions:
 	input:
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
 	output:
@@ -621,7 +621,7 @@ rule get_clinvar_2022_vars:
 		tabix $old_wd"/"{input.values} -R varlist_clinvar_2022.txt | cat headerPostTabix.txt - | gzip > values_of_clinvar_variants.tsv.gz
 		"""
 
-rule evaluate_clinvar_2022:
+rule evaluate_performance_on_clinvar:
 	input:
 		cv_patho="data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		cv_ben="data/clinvar2022/clinvar_2022_benign.vcf.gz",
