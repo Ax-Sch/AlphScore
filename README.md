@@ -30,6 +30,6 @@ Feature extraction can be run using the follwoing commands:
 snakemake --cores [number of cores you have]
 
 ```
-The snakemake pipeline will execute >100,000 jobs. For testing, you can set the variable testing=True at the beginning of the pipeline. You could also skip the feature extraction part by downloading the file gnomad_extracted_prepro_rec.csv.gz (https://uni-bonn.sciebo.de/s/iE2GcXYUPoYgWHl) and placing it into the directory data/train_testset1/. Then you would start downstream of the rule preprocess_clinvar_gnomad_set (see abov) and you could already fit the machine learning models yourself and try to find a model that performs better than ours.
+The snakemake pipeline will execute >100,000 jobs. To avoid all the computation, you can set the variable testing=True at the beginning of the pipeline. After running the pipeline in testing mode, you could replace the file data/train_testset1/gnomad_extracted_prepro_rec.csv.gz by the one from https://uni-bonn.sciebo.de/s/iE2GcXYUPoYgWHl . Then you would have the full data set for fitting machine learning models yourself. The evaluation in ClinVar variants will be on fewer proteins, however.
 
-This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. If you have any questions just message me.
+This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. If you have any questions you can also contact me.
