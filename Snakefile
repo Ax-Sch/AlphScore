@@ -1,28 +1,25 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=True
+testing=False
 
 import subprocess
 import os
 import pandas as pd
 
+grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", sep="\t").astype(str)
 dbNSFP_file=pd.read_csv("config/dbnsfp_files.txt", names=["uniprot_ids"])
+
+# if just a subset of the pdbs should be processsed for testing, set testing=True above
+if testing == True:
+	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
+	dbNSFP_file=dbNSFP_file.iloc[0:100]
+
 PDB_file=pd.read_csv("config/pdb_ids.txt", names=["PDB_ID"])
 PDB_file[["prefix","uniprot_ids","model","postfix"]]=PDB_file["PDB_ID"].str.split("-", expand=True,)
 PDB_dbNSFP=PDB_file[PDB_file.uniprot_ids.isin(dbNSFP_file.uniprot_ids)]
 relevant_uniprot_ids=PDB_dbNSFP["uniprot_ids"].tolist()
 relevant_uniprot_ids=list(set(relevant_uniprot_ids)) # remove duplicates
 relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
-
-grid_search_table=pd.read_csv(filepath_or_buffer="resources/grid_search.tsv", sep="\t").astype(str)
-
-
-if testing == True:
-	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
-	relevant_alphafold_models.sort()
-	relevant_alphafold_models=relevant_alphafold_models[0:1600]
-	relevant_uniprot_ids.sort()
-	relevant_uniprot_ids=relevant_uniprot_ids[0:1600]
 
 
 rule all:
