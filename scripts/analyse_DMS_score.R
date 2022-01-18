@@ -29,22 +29,25 @@ validation_dataset$pos_in_VEP_and_Uniprot<-get_index_col(validation_dataset)
 validation_dataset$DEOGEN2_score_med<-unlist_score(validation_dataset$DEOGEN2_score, validation_dataset$pos_in_VEP_and_Uniprot)
 
 variants$AlphScore<-variants$predicted_Alph
+
+variants<-variants%>% 
+  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))
+
 ### combine scores on interim dataset:
 interim_dataset<-variants %>% 
-  filter(gnomadSet==0)
+  filter(clinvar_interim_test==TRUE)
+gnomad_train_dataset<-variants %>% 
+  filter(gnomad_train==TRUE)
 
+validation_dataset<-validation_dataset %>%
+  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))%>%
+  filter(!ID %in% interim_dataset$ID)%>%
+  filter(!ID %in% gnomad_train_dataset$ID)
 
 set_of_models<-fit_set_of_models(interim_dataset)
 validation_dataset<-predict_set_of_models(set_of_models, validation_dataset)
 
 ###### validation Dataset
-
-variants<-variants%>% 
-  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))
-
-validation_dataset<-validation_dataset %>%
-  mutate(ID=paste(`#chr`, `pos(1-based)`,ref, alt, sep=":"))%>%
-  filter(!ID %in% variants$ID)
 
 SCORES<-c("Alph_null","AlphScore", "CADD_raw", "glm_AlphCadd", 
           "REVEL_score", "glm_AlphRevel", "glm_RevelCadd", 

@@ -327,10 +327,10 @@ if (opt$k_fold_cross_val == TRUE){
                         test_nProteins=length(unique(test_dataset$Uniprot_acc_split)),
                         test_gnomad_nProteins=length(unique(test_dataset_gnomad$Uniprot_acc_split)),
                         condition=opt$prefix )
-  
-  if (opt$write_dataset){
-    write_csv(x=variants, file=paste0(opt$prefix,"_variants.csv.gz"))
-  }
+}
+
+if (opt$write_dataset){
+  write_csv(x=variants, file=paste0(opt$prefix,"_variants.csv.gz"))
 }
 
 if (opt$method_pred %in% c("randomforest", "extratree")){

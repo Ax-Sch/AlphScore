@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=False
+testing=True
 
 import subprocess
 import os
@@ -28,6 +28,7 @@ rule all:
 		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
 		"data/joined_grid/joined_grid.tsv",
 		"data/prediction_final/final_regular_written_full_model.RData",
+		"data/prediction_final/final_nopLDDT_written_full_model.RData",
 		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
@@ -36,7 +37,8 @@ rule all:
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
 		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
-		"data/merge_all/all_possible_values_concat.csv.gz",
+		"data/merge_eval/all_possible_values_concat.csv.gz",
+		"data/merge_final/all_possible_values_concat.csv.gz",
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -400,6 +402,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction_final/final{FeatureSetToTake}_written_full_model.RData",
 		"data/prediction_final/final{FeatureSetToTake}_toAS_properties.RData",
 		"data/prediction_final/final{FeatureSetToTake}_colnames_to_use.RData",
+		"data/prediction_final/final{FeatureSetToTake}_variants.csv.gz",
 		"data/prediction_final/final{FeatureSetToTake}_impurity_importance.tsv",
 		"data/prediction_final/final{FeatureSetToTake}_permutation_importance.tsv",
 		"data/prediction_final/pre_final_model{FeatureSetToTake}_variants.csv.gz",
@@ -411,16 +414,16 @@ rule fit_models_w_final_settings_from_grid_search:
 	run:
 		import pandas as pd
 		import os
-
-		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
-		grid_results=grid_results.sort_values(["auc_Alph_test_CV","auc_Alph_interim_CV"])
-		best_model=grid_results.iloc[-1]
 		
+		# uncomment for automatic selection:
+		grid_results=pd.read_csv("data/joined_grid/joined_grid.tsv", sep="\t")
+		grid_results=grid_results.sort_values(["auc_Alph_interim_CV"])
+		best_model=grid_results.iloc[-1]
 		parameters=grid_search_table[grid_search_table["prefix"]==best_model.condition]
 		
-		print("Best model:")
-		print(best_model)
-		
+		#manual selection:
+		#parameters=grid_search_table[grid_search_table["prefix"]=="randomforest_4000_12_500_0.999999_0_0_90_0_0_regCols"] 
+
 		base_command=('Rscript scripts/prediction.R ' +
 			' --csv_location ' + input[1] + 
 			' --out_folder ' + params[1] +
@@ -459,28 +462,27 @@ rule fit_models_w_final_settings_from_grid_search:
 
 
 
-rule predict_Alphscore_protein_level:
+rule predict_Alphscore_protein_level_for_evaluation:
 	input:
 		csv="data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz",
-		model_reg="data/prediction_final/final_regular_written_full_model.RData",
-		to_AS_reg="data/prediction_final/final_regular_toAS_properties.RData",
-		colnames_reg="data/prediction_final/final_regular_colnames_to_use.RData",
+		model="data/prediction_final/pre_final_model_regular_written_full_model.RData",
+		to_AS="data/prediction_final/pre_final_model_regular_toAS_properties.RData",
+		colnames="data/prediction_final/pre_final_model_regular_colnames_to_use.RData",
 		model_null="data/prediction_final/final_NullModel_written_full_model.RData",
 		to_AS_null="data/prediction_final/final_NullModel_toAS_properties.RData",
 		colnames_null="data/prediction_final/final_NullModel_colnames_to_use.RData",
-		
 	output:
-		"data/predicted_prots/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
+		"data/predicted_prots_eval/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
 	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	params:
 		partition=config["short_partition"]
 	shell:
 		"""
-		Rscript scripts/predict_w_ranger_model.R \
+		Rscript scripts/predict_w_ranger_model_for_Evaluation.R \
 		--csv_location {input.csv} \
-		--model_location {input.model_reg} \
-		--use_cols_file {input.colnames_reg} \
-		--toAS_properties {input.to_AS_reg} \
+		--model_location {input.model} \
+		--use_cols_file {input.colnames} \
+		--toAS_properties {input.to_AS} \
 		--model_location_null {input.model_null} \
 		--use_cols_file_null {input.colnames_null} \
 		--toAS_properties_null {input.to_AS_null} \
@@ -488,10 +490,52 @@ rule predict_Alphscore_protein_level:
 		--reduced {wildcards.reduced}
 		"""
 
+rule predict_Alphscore_protein_level_Final:
+	input:
+		csv="data/combine2_protein/{uniprot_id}_w_AFfeatures.csv.gz",
+		model_Full="data/prediction_final/final_regular_written_full_model.RData",
+		to_AS_Full="data/prediction_final/final_regular_toAS_properties.RData",
+		colnames_Full="data/prediction_final/final_regular_colnames_to_use.RData",
+		combined_model="data/prediction_final/combined_model.RData",
+		training_var_ids="data/prediction_final/training_var_ids.tsv"
+	output:
+		"data/predicted_prots_final/{uniprot_id}_w_AlphScore_red_{reduced}.csv.gz"
+	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
+	params:
+		partition=config["short_partition"]
+	shell:
+		"""
+		Rscript scripts/predict_w_ranger_model_Final.R \
+		--csv_location {input.csv} \
+		--model_location {input.model} \
+		--use_cols_file {input.colnames} \
+		--toAS_properties {input.to_AS} \
+		--combined_model {input.combined_model} \
+		--training_var_ids {input.training_var_ids} \
+		--output_file {output} \
+		--reduced {wildcards.reduced}
+		"""
+
+rule create_final_combined_model:
+	input:
+		training_dataset="data/prediction_final/final_regular_variants.csv.gz",
+	output:
+		combined_model="data/prediction_final/combined_model.RData",
+		training_var_ids="data/prediction_final/training_var_ids.tsv"
+	resources: cpus=1, time_job=60, mem_mb=35000
+	params:
+		partition=config["short_partition"]
+	shell:
+		"""
+		Rscript scripts/create_final_combined_models.R \
+		--training_dataset {input.training_dataset} \
+		--combined_model {output.combined_model} \
+		--training_var_ids {output.training_var_ids}
+		"""
+
 rule create_validation_set_DMS:
 	input:
-		"resources/",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz", uniprot_id=["P01112","P04637","P05067", 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
+		expand("data/predicted_prots_eval/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz", uniprot_id=["P01112","P04637","P05067", 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
 	output:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
 	resources: cpus=1, mem_mb=18000, time_job=480
@@ -567,22 +611,22 @@ rule plot_feature_importance:
 
 rule merge_proteins_w_Alph_predictions:
 	input:
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids)
+		expand("data/predicted_prots_{EvalFinal}/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids, allow_missing=True)
 	output:
-		"data/merge_all/all_possible_values_concat.csv.gz",
-		"data/merge_all/header.csv",
+		"data/merge_{EvalFinal}/all_possible_values_concat.csv.gz",
+		"data/merge_{EvalFinal}/header.csv",
 	params:
 		partition=config["long_partition"],
-		in_folder="data/predicted_prots/",
-		out_folder="data/merge_all/"
+		in_folder="data/predicted_prots_{wildcards.EvalFinal}/",
+		out_folder="data/merge_{wildcards.EvalFinal}/"
 	resources: time_job=4800, mem_mb=8000
 	shell:
 		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
 
 rule get_clinvar_2022_vars:
 	input:
-		values="data/merge_all/all_possible_values_concat.csv.gz",
-		header="data/merge_all/header.csv"
+		values="data/merge_eval/all_possible_values_concat.csv.gz",
+		header="data/merge_eval/header.csv"
 	output:
 		"data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		"data/clinvar2022/clinvar_2022_benign.vcf.gz",
@@ -618,6 +662,7 @@ rule evaluate_performance_on_clinvar:
 		cv_patho="data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		cv_ben="data/clinvar2022/clinvar_2022_benign.vcf.gz",
 		cv_scores="data/clinvar2022/values_of_clinvar_variants.tsv.gz",
+		variants="data/prediction_final/pre_final_model_regular_variants.csv.gz"	
 	output:
 		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
 		"data/clinvar2022_alphafold/meanSemAUCs.tsv"
@@ -631,6 +676,7 @@ rule evaluate_performance_on_clinvar:
 		--clinvar_benign {input.cv_ben} \
 		--clinvar_pathogenic {input.cv_patho} \
 		--AlphaFold_scores {input.cv_scores} \
+		--variants {input.variants} \
 		--out_folder {params.out_folder} 
 		"""
 
