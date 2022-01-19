@@ -1,6 +1,7 @@
 library(readr)
 library(dplyr)
 library(optparse)
+library(stringr)
 source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 

@@ -33,7 +33,7 @@ rule all:
 		"data/validation_set/validation_set_w_AlphScore.csv.gz",
 		"data/analyse_score/spearman_plot.pdf",
 		"data/plot_k/barplot_preprocessed.pdf",
-		"data/plot_k/final_regular_importance_permutation.pdf",
+		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
 		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
 		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
 		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
@@ -403,11 +403,11 @@ rule fit_models_w_final_settings_from_grid_search:
 		"data/prediction_final/final{FeatureSetToTake}_toAS_properties.RData",
 		"data/prediction_final/final{FeatureSetToTake}_colnames_to_use.RData",
 		"data/prediction_final/final{FeatureSetToTake}_variants.csv.gz",
-		"data/prediction_final/final{FeatureSetToTake}_impurity_importance.tsv",
-		"data/prediction_final/final{FeatureSetToTake}_permutation_importance.tsv",
+		"data/prediction_final/pre_final_model{FeatureSetToTake}_impurity_importance.tsv",
+		"data/prediction_final/pre_final_model{FeatureSetToTake}_permutation_importance.tsv",
 		"data/prediction_final/pre_final_model{FeatureSetToTake}_variants.csv.gz",
 		"data/prediction_final/pre_final_model_k_fold{FeatureSetToTake}_results.tsv"
-	resources: cpus=14, mem_mb=70000, time_job=480
+	resources: cpus=12, mem_mb=60000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/prediction_final/"
@@ -440,9 +440,9 @@ rule fit_models_w_final_settings_from_grid_search:
 		
 		pre_final_write_dataset_imp=base_command + ' --prefix pre_final_model' + wildcards[0] +' --write_model TRUE --write_dataset TRUE --importance impurity '
 		
-		final_permutation=base_command + ' --prefix final' + wildcards[0] +' --full_model TRUE --importance permutation '
+		pre_final_permutation=base_command + ' --prefix pre_final_model' + wildcards[0] +' --importance permutation '
 		
-		final_write_model=base_command + ' --prefix final' + wildcards[0] + ' --full_model TRUE --write_model TRUE '
+		final_write_model=base_command + ' --prefix final' + wildcards[0] + ' --full_model TRUE --write_dataset TRUE --write_model TRUE '
 		
 		print("run k-fold cross validation, command:")
 		os.system("echo " + pre_final_k_fold_com)
@@ -452,9 +452,9 @@ rule fit_models_w_final_settings_from_grid_search:
 		os.system("echo " + pre_final_write_dataset_imp)
 		os.system(pre_final_write_dataset_imp)
 		
-		print("run final model importance, command:")
-		os.system("echo " + final_permutation)
-		os.system(final_permutation)
+		print("run pre final model importance, command:")
+		os.system("echo " + pre_final_permutation)
+		os.system(pre_final_permutation)
 		
 		print("run final model, command:")
 		os.system("echo " + final_write_model)
@@ -584,12 +584,12 @@ rule evaluate_performance_on_DMS_data:
 		
 rule plot_feature_importance:
 	input:
-		impurity="data/prediction_final/final_regular_impurity_importance.tsv",
-		permutation="data/prediction_final/final_regular_permutation_importance.tsv",
+		impurity="data/prediction_final/pre_final_model_regular_impurity_importance.tsv",
+		permutation="data/prediction_final/pre_final_model_regular_permutation_importance.tsv",
 		tsv_location="data/prediction_final/pre_final_model_k_fold_regular_results.tsv"
 	output:
-		imp_impurity="data/plot_k/final_regular_importance_impurity.pdf",
-		imp_permutation="data/plot_k/final_regular_importance_permutation.pdf",
+		imp_impurity="data/plot_k/pre_final_model_regular_importance_impurity.pdf",
+		imp_permutation="data/plot_k/pre_final_model_regular_importance_permutation.pdf",
 		barplot_mean_auc_cv="data/plot_k/barplot_mean_auc_crossval.pdf"
 	resources: cpus=1, mem_mb=18000, time_job=480
 	params:

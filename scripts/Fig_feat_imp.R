@@ -35,6 +35,9 @@ var_importance_plot<-ggplot(var_imp_ds, aes(x=reorder(variable,-importance), y=i
 return(var_importance_plot)
 }
 
+var_imp_imp<-importance_table_imp[order(-importance_table_imp$importance),]%>%
+  slice(1:25)
+
 var_importance_imp_plot<-plot_variable_importance(var_imp_imp)
 
 ggsave(filename=paste0(opt$prefix,"_importance_impurity.pdf"), 

@@ -86,7 +86,7 @@ if (opt$reduced==TRUE){
   mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))%>%
   select(any_of(colnames(variants)[2:10]), 
          ID, genename, Uniprot_acc_split,Uniprot_acc,HGVSp_VEP_split, HGVSp_VEP, CADD_raw, REVEL_score, DEOGEN2_score, 
-         b_factor, SOLVENT_ACCESSIBILITY_core, in_gnomad_train, in_clinvar_ds, Alph_null, AlphScore)
+         b_factor, SOLVENT_ACCESSIBILITY_core, Alph_null, AlphScore)
 }
 
 # write to disk
