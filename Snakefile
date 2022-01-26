@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=True
+testing=False
 
 import subprocess
 import os
@@ -202,9 +202,8 @@ rule get_feature_HSE:
 		exp_ca = hse.HSExposureCB(structure)
 		os.system('rm "' + pdb_path + 'X"' )
 		resi_count=len(exp_ca.keys())
-		print("ja")
-		list_HSE=[ [exp_ca.keys()[i][1][1], exp_ca.property_list[i][1][0], exp_ca.property_list[i][1][1] ] for i in range(0, resi_count)]
-		df_HSE=pd.DataFrame(list_HSE)
+		list_RESI_HSE=[ [exp_ca.keys()[i][1][1], exp_ca.property_list[i][1][0], exp_ca.property_list[i][1][1] ] for i in range(0, resi_count)]
+		df_HSE=pd.DataFrame(list_RESI_HSE)
 		df_HSE.columns =['RESI','HSE1','HSE2']
 		df_HSE.index=df_HSE.RESI
 		df_HSE.to_csv(output[0], index=False)
@@ -432,6 +431,8 @@ rule fit_models_w_final_settings_from_grid_search:
 		# overwrite excel location if NullModel should be fit:
 		if wildcards[0] == "_NullModel":
 			base_command = base_command + ' --excel_location resources/available_colnames_NullModel.xlsx'
+		if wildcards[0] == "_nopLDDT":
+			base_command = base_command + ' --excel_location resources/available_colnames_nopLDDT.xlsx'
 		
 		print("base command:")
 		print(base_command)
@@ -507,9 +508,9 @@ rule predict_Alphscore_protein_level_Final:
 		"""
 		Rscript scripts/predict_w_ranger_model_Final.R \
 		--csv_location {input.csv} \
-		--model_location {input.model} \
-		--use_cols_file {input.colnames} \
-		--toAS_properties {input.to_AS} \
+		--model_location {input.model_Full} \
+		--use_cols_file {input.colnames_Full} \
+		--toAS_properties {input.to_AS_Full} \
 		--combined_model {input.combined_model} \
 		--training_var_ids {input.training_var_ids} \
 		--output_file {output} \
@@ -594,13 +595,14 @@ rule plot_feature_importance:
 	resources: cpus=1, mem_mb=18000, time_job=480
 	params:
 		partition=config["short_partition"],
-		out_folder="data/plot_k/"
+		out_folder="data/plot_k/",
+		prefix="pre_final_model_regular"
 	shell:
 		"""
 		Rscript scripts/Fig_feat_imp.R \
 		--input_impurity {input.impurity} \
 		--input_permutation {input.permutation} \
-		--prefix final_regular \
+		--prefix {params.prefix}  \
 		--out_folder {params.out_folder} 
 
 		Rscript scripts/Fig_auc_cv.R \
@@ -617,8 +619,8 @@ rule merge_proteins_w_Alph_predictions:
 		"data/merge_{EvalFinal}/header.csv",
 	params:
 		partition=config["long_partition"],
-		in_folder="data/predicted_prots_{wildcards.EvalFinal}/",
-		out_folder="data/merge_{wildcards.EvalFinal}/"
+		in_folder="data/predicted_prots_{EvalFinal}/",
+		out_folder="data/merge_{EvalFinal}/"
 	resources: time_job=4800, mem_mb=8000
 	shell:
 		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"

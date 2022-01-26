@@ -7,7 +7,7 @@ source("scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
-  make_option(c("-c", "--csv_location"), type="character", default="data/combine2_protein/P38398_w_AFfeatures.csv.gz", 
+  make_option(c("-c", "--csv_location"), type="character", default="data/combine2_protein/A0A1B0GUS4_w_AFfeatures.csv.gz", 
               help="csv.gz file"),
   make_option(c("-m", "--model_location"), type="character", default="data/prediction/final_written_full_model.RData", 
               help="File containing the full model for prediction"),
@@ -15,7 +15,7 @@ option_list = list(
               help="File containing the colnames to use in the final model"),
   make_option(c("-t", "--toAS_properties"), type="character", default="data/prediction/final_toAS_properties.RData", 
               help="File containing the properties of the alternative amino acids"),
-  make_option(c("-c", "--combined_model"), type="character", default="data/prediction_final/combined_model.RData", 
+  make_option(c("-b", "--combined_model"), type="character", default="data/prediction_final/combined_model.RData", 
               help="File where the final combined logistic regression model should be saved to"),
   make_option(c("-v", "--training_var_ids"), type="character", default="data/prediction_final/training_var_ids.tsv", 
               help="IDs of variants that were in the training / test set"),
@@ -28,7 +28,7 @@ option_list = list(
 opt = parse_args(OptionParser(option_list=option_list))
 
 to_AS_table<-read_tsv("resources/to_AS_table.txt")
-variants<-read_csv(opt$csv_location, na=c(".","NA", NA))
+variants<-read_csv(opt$csv_location, na=c(".","NA", NA), col_types = cols(.default = "?", REVEL_score = "d"))
 
 # if variant file is empty, stop
 if (nrow(variants)==0){

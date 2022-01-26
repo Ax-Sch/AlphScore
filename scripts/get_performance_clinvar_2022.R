@@ -22,9 +22,11 @@ clinvar_benign<-read_tsv(opt$clinvar_benign, col_names=TRUE) %>%
   mutate(ID=paste(CHROM,POS,REF,ALT, sep=":"))
 clinvar_pathogenic<-read_tsv(opt$clinvar_pathogenic, col_names=TRUE) %>%
   mutate(ID=paste(CHROM,POS,REF,ALT, sep=":"))
-alphafold_pre_calculated<-read_tsv(opt$AlphaFold_scores, col_names=TRUE)%>%
+alphafold_pre_calculated<-read_tsv(opt$AlphaFold_scores, col_names=TRUE, 
+                                   col_types = cols(.default = "?", REVEL_score = "d"))%>%
   mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))
-variants<-read_csv(opt$variants)
+variants<-read_csv(opt$variants, 
+                   col_types = cols(.default = "?", REVEL_score = "d"))
 
 
 dir.create(opt$out_folder, recursive=TRUE)

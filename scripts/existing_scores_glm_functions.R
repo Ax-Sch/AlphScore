@@ -4,10 +4,10 @@
 get_index_col<-function(variant_dataset){
   variant_dataset$Uniprot_acc_list<-variant_dataset$Uniprot_acc %>% str_split(";")
   variant_dataset$HGVSp_VEP_list<-variant_dataset$HGVSp_VEP %>% str_split(";")
-  
-  variant_dataset$pos_in_Uniprot<-sapply(1:nrow(variant_dataset), function(x) { (variant_dataset$Uniprot_acc_list[[x]] == variant_dataset$Uniprot_acc_split[x])})
-  variant_dataset$pos_in_VEP<-sapply(1:nrow(variant_dataset), function(x) { (variant_dataset$HGVSp_VEP_list[[x]] == variant_dataset$HGVSp_VEP_split[x])})
-  variant_dataset$pos_in_VEP_and_Uniprot<-sapply(1:nrow(variant_dataset), function(x) {(variant_dataset$pos_in_Uniprot[[x]] & variant_dataset$pos_in_VEP[[x]])})
+
+  variant_dataset$pos_in_Uniprot<-lapply(1:nrow(variant_dataset), function(x) { (variant_dataset$Uniprot_acc_list[[x]] == variant_dataset$Uniprot_acc_split[x])} )
+  variant_dataset$pos_in_VEP<-lapply(1:nrow(variant_dataset), function(x) { (variant_dataset$HGVSp_VEP_list[[x]] == variant_dataset$HGVSp_VEP_split[x])}  )
+  variant_dataset$pos_in_VEP_and_Uniprot<-lapply(1:nrow(variant_dataset), function(x) {(variant_dataset$pos_in_Uniprot[[x]] & variant_dataset$pos_in_VEP[[x]])}  )
   
   return(variant_dataset$pos_in_VEP_and_Uniprot)
 }

@@ -20,6 +20,7 @@ conda activate alphafold1
 chmod +x tools/dssp/mkdssp
 chmod +x tools/feature/feature-3.1.0/bin/featurize
 ```
+The feature framework version 3.1.0 can be obtained from the following website: https://simtk.org .
 
 Note that DSSP, the FEATURE framework and protinter are practically not available via conda. Currently, these tools were placed in the tools folder of this repository to facilitate installing.
 
