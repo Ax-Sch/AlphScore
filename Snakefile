@@ -12,7 +12,7 @@ dbNSFP_file=pd.read_csv("config/dbnsfp_files.txt", names=["uniprot_ids"])
 # if just a subset of the pdbs should be processsed for testing, set testing=True above
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
-	dbNSFP_file=dbNSFP_file.iloc[0:100]
+	dbNSFP_file=dbNSFP_file.iloc[0:1]
 
 PDB_file=pd.read_csv("config/pdb_ids.txt", names=["PDB_ID"])
 PDB_file[["prefix","uniprot_ids","model","postfix"]]=PDB_file["PDB_ID"].str.split("-", expand=True,)
@@ -24,21 +24,22 @@ relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 rule all:
 	input:
-		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
-		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
-		"data/joined_grid/joined_grid.tsv",
-		"data/prediction_final/final_regular_written_full_model.RData",
-		"data/prediction_final/final_nopLDDT_written_full_model.RData",
-		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
-		"data/validation_set/validation_set_w_AlphScore.csv.gz",
-		"data/analyse_score/spearman_plot.pdf",
-		"data/plot_k/barplot_preprocessed.pdf",
-		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
-		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
-		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
-		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
-		"data/merge_eval/all_possible_values_concat.csv.gz",
-		"data/merge_final/all_possible_values_concat.csv.gz",
+#		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+#		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
+#		"data/joined_grid/joined_grid.tsv",
+#		"data/prediction_final/final_regular_written_full_model.RData",
+#		"data/prediction_final/final_nopLDDT_written_full_model.RData",
+#		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
+#		"data/validation_set/validation_set_w_AlphScore.csv.gz",
+#		"data/analyse_score/spearman_plot.pdf",
+#		"data/plot_k/barplot_preprocessed.pdf",
+#		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
+#		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
+#		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
+#		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
+#		"data/merge_eval/all_possible_values_concat.csv.gz",
+#		"data/merge_final/all_possible_values_concat.csv.gz",
+		"data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -632,7 +633,9 @@ rule get_clinvar_2022_vars:
 	output:
 		"data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		"data/clinvar2022/clinvar_2022_benign.vcf.gz",
-		"data/clinvar2022/values_of_clinvar_variants.tsv.gz"
+		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
+		"data/clinvar2022/headerPostTabix.txt",
+		"data/clinvar2022/varlist_clinvar_2022.txt"
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"],
@@ -659,6 +662,23 @@ rule get_clinvar_2022_vars:
 		tabix $old_wd"/"{input.values} -R varlist_clinvar_2022.txt | cat headerPostTabix.txt - | gzip > values_of_clinvar_variants.tsv.gz
 		"""
 
+rule get_clinvar_2022_vars_FINAL:
+	input:
+		values="data/merge_final/all_possible_values_concat.csv.gz",
+		header="data/clinvar2022/headerPostTabix.txt",
+		varlist="data/clinvar2022/varlist_clinvar_2022.txt"
+	output:
+		"data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz"
+	resources: cpus=1, mem_mb=5000, time_job=480
+	params:
+		partition=config["short_partition"],
+		out_folder="data/clinvar2022/"
+	shell:
+		"""
+		tabix {input.values} -R {input.varlist} | cat {input.header} - | gzip > {output}
+		"""
+
+
 rule evaluate_performance_on_clinvar:
 	input:
 		cv_patho="data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
@@ -672,6 +692,30 @@ rule evaluate_performance_on_clinvar:
 	params:
 		partition=config["short_partition"],
 		out_folder="data/clinvar2022_alphafold/"
+	shell:
+		"""
+		Rscript scripts/get_performance_clinvar_2022.R \
+		--clinvar_benign {input.cv_ben} \
+		--clinvar_pathogenic {input.cv_patho} \
+		--AlphaFold_scores {input.cv_scores} \
+		--variants {input.variants} \
+		--out_folder {params.out_folder} 
+		"""
+
+
+
+rule get_curves_of_final_model:
+	input:
+		variants="data/prediction_final/final_regular_variants.csv.gz",
+		cv_scores="data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz",
+		cv_patho="data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
+		cv_ben="data/clinvar2022/clinvar_2022_benign.vcf.gz",
+	output:
+		figure="data/final_model_curves/AlphScorePlot.pdf"
+	resources: cpus=1, time_job=60, mem_mb=35000
+	params:
+		partition=config["short_partition"],
+		out_folder="data/final_model_curves/"
 	shell:
 		"""
 		Rscript scripts/get_performance_clinvar_2022.R \

@@ -1,8 +1,5 @@
 library(tidyverse)
 library(optparse)
-library(pROC)
-library(PRROC)
-library(VennDiagram)
 
 source("scripts/existing_scores_glm_functions.R")
 source("scripts/precision_recall_resource.R")
@@ -52,8 +49,6 @@ alphafold_pre_calculated_w_CV2022<-alphafold_pre_calculated %>%
 
 variants$AlphScore<-variants$predicted_Alph
 
-variants$pos_in_VEP_and_Uniprot<-get_index_col(variants)
-variants$DEOGEN2_score_med<-unlist_score(variants$DEOGEN2_score, variants$pos_in_VEP_and_Uniprot)
 
 variants<-variants%>% 
   mutate(ID=paste(`#chr`, `pos(1-based)`,ref, sep=":"))
@@ -91,87 +86,7 @@ sum(testSet$ID %in% test_dataset$ID)
 sum(testSet$ID %in% variants$ID)
 
 testSet<-testSet[complete.cases(testSet),]
-
 table(testSet$outcome)
-
-
-
-score_performance_tbl<-tibble()
-
-
-plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
-       col = "black", print.auc.y = .35)
-  plot(roc(testSet$outcome, testSet$REVEL_score), print.auc = TRUE, 
-       col = "blue", print.auc.y = .25, add = TRUE)
-  plot(roc(testSet$outcome, testSet$glm_AlphRevel), print.auc = TRUE, 
-       col = "red", print.auc.y = .15, add = TRUE)
-  plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
-       col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "REVEL", "AlphRevel", "Alph_null"),
-         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
-
-  
-  plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
-       col = "black", print.auc.y = .35)
-  plot(roc(testSet$outcome, testSet$CADD_raw), print.auc = TRUE, 
-       col = "blue", print.auc.y = .25, add = TRUE)
-  plot(roc(testSet$outcome, testSet$glm_AlphCadd), print.auc = TRUE, 
-       col = "red", print.auc.y = .15, add = TRUE)
-  plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
-       col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "CADD", "AlphCadd", "Alph_null"),
-         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
-
-  
-  plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
-       col = "black", print.auc.y = .35)
-  plot(roc(testSet$outcome, testSet$DEOGEN2_score_med), print.auc = TRUE, 
-       col = "blue", print.auc.y = .25, add = TRUE)
-  plot(roc(testSet$outcome, testSet$glm_AlphDeogen), print.auc = TRUE, 
-       col = "red", print.auc.y = .15, add = TRUE)
-  plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
-       col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "DEOGEN2", "AlphDeogen", "Alph_null"),
-         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
-
-  
-  score_performance_tbl <- rbind(score_performance_tbl, 
-                       tibble(Alph=roc(testSet$outcome, testSet$AlphScore)$auc, 
-                              Alph_null=roc(testSet$outcome, testSet$Alph_null)$auc, 
-                              CADD=roc(testSet$outcome, testSet$CADD_raw)$auc, 
-                              REVEL=roc(testSet$outcome, testSet$REVEL_score)$auc,
-                              DEOGEN2=roc(testSet$outcome, testSet$DEOGEN2_score_med)$auc, 
-                              AlphCadd=roc(testSet$outcome, testSet$glm_AlphCadd)$auc, 
-                              AlphDeogen=roc(testSet$outcome, testSet$glm_AlphDeogen)$auc, 
-                              AlphRevel=roc(testSet$outcome, testSet$glm_AlphRevel)$auc, 
-                              num_test=nrow(testSet) ))
-
-
-
-write_tsv(x=score_performance_tbl, 
-          file="score_performance_tbl.tsv")
-
-score_performance_tbl_spread<-score_performance_tbl%>%
-  select(-num_test)%>%
-  gather(key="method")%>%
-  arrange(value)
-
-score_performance_tbl_spread<-score_performance_tbl_spread%>%
-  mutate(method=factor(method, levels=c("Alph_null","Alph","CADD","AlphCadd","DEOGEN2","AlphDeogen","REVEL","AlphRevel")))
-
-plot_aucs_ClinVar<-ggplot(score_performance_tbl_spread, aes(x=method, y=value))+
-  stat_summary(fun.y = mean, geom = "bar") + 
-  theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
-        axis.text.y = element_text(color="black", size=10))+
-  coord_cartesian(ylim=c(0.5,1)) + 
-  labs(x = "")+
-  labs(y = "AUC (ClinVar test set)", size=12)
-
-plot_aucs_ClinVar
-ggsave(filename= "plot_aucs_ClinVar.pdf", plot=plot_aucs_ClinVar, height=5, width=4)
-
-
 
 AlphNullPlot<-ggplot(testSet)+
   geom_density(aes(x=Alph_null, fill=outcome), alpha=0.5)+
@@ -244,35 +159,3 @@ ggsave(filename="glm_AlphCadd_plot.pdf",
 glm_AlphCadd_table<-generate_table("glm_AlphCadd")
 write_tsv(x=glm_AlphCadd_table,
           file="glm_AlphCadd_table.tsv")
-
-
-pr_cadd<-pr.curve(scores.class0=testSet$CADD_raw, weights.class0=testSet$outcome, curve=T)
-pr_alphCadd<-pr.curve(scores.class0=testSet$glm_AlphCadd, weights.class0=testSet$outcome, curve=T)
-pr_alph<-pr.curve(scores.class0=testSet$AlphScore, weights.class0=testSet$outcome, curve=T)
-pr_alph_null<-pr.curve(scores.class0=testSet$Alph_null, weights.class0=testSet$outcome, curve=T)
-
-plot(pr_alphCadd, color="red")
-plot(pr_cadd, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
-
-pr_revel<-pr.curve(scores.class0=testSet$REVEL_score, weights.class0=testSet$outcome, curve=T)
-pr_alphRevel<-pr.curve(scores.class0=testSet$glm_AlphRevel, weights.class0=testSet$outcome, curve=T)
-plot(pr_alphRevel, color="red")
-plot(pr_revel, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
-
-pr_deogen<-pr.curve(scores.class0=testSet$DEOGEN2_score_med, weights.class0=testSet$outcome, curve=T)
-pr_alphDeogen<-pr.curve(scores.class0=testSet$glm_AlphDeogen, weights.class0=testSet$outcome, curve=T)
-plot(pr_deogen, color="red")
-plot(pr_alphDeogen, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
-
-
-datasets_venn<-venn.diagram(x=list(gnomad_dataset$ID, interim_dataset$ID, testSet$ID), 
-             category.names = c("gnomAD_train" , "ClinVar_validation", "ClinVar_test/hold-out"), 
-             filename = NULL)
-
-ggsave(datasets_venn, file="datasets_venn.pdf", device = "pdf", width=6, height=6)
