@@ -3,9 +3,13 @@ library(optparse)
 library(pROC)
 library(PRROC)
 library(VennDiagram)
+library(boot)
 
 source("scripts/existing_scores_glm_functions.R")
 source("scripts/precision_recall_resource.R")
+
+BOOT_REPETITIONS=1000
+set.seed(1)
 
 option_list = list(
   make_option(c("-b", "--clinvar_benign"), type="character", default="data/clinvar2022/clinvar_2022_benign.vcf.gz", 
@@ -98,7 +102,7 @@ table(testSet$outcome)
 
 score_performance_tbl<-tibble()
 
-
+pdf(file="ClinVar_val_REVEL.pdf")
 plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
        col = "black", print.auc.y = .35)
   plot(roc(testSet$outcome, testSet$REVEL_score), print.auc = TRUE, 
@@ -107,10 +111,11 @@ plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE,
        col = "red", print.auc.y = .15, add = TRUE)
   plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
        col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "REVEL", "AlphRevel", "Alph_null"),
+  legend(0.2, 0.3, legend=c("AlphScore", "REVEL", "AlphScore + REVEL", "NullModel"),
          col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
+dev.off()
 
-  
+pdf(file="ClinVar_val_CADD.pdf")
   plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
        col = "black", print.auc.y = .35)
   plot(roc(testSet$outcome, testSet$CADD_raw), print.auc = TRUE, 
@@ -119,10 +124,11 @@ plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE,
        col = "red", print.auc.y = .15, add = TRUE)
   plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
        col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "CADD", "AlphCadd", "Alph_null"),
+  legend(0.2, 0.3, legend=c("AlphScore", "CADD", "AlphScore + CADD", "NullModel"),
          col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
-
+dev.off()
   
+pdf(file="ClinVar_val_DEOGEN2.pdf")
   plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE, 
        col = "black", print.auc.y = .35)
   plot(roc(testSet$outcome, testSet$DEOGEN2_score_med), print.auc = TRUE, 
@@ -131,45 +137,11 @@ plot(roc(as.integer(testSet$outcome), testSet$AlphScore), print.auc = TRUE,
        col = "red", print.auc.y = .15, add = TRUE)
   plot(roc(testSet$outcome, testSet$Alph_null), print.auc = TRUE, 
        col = "grey", print.auc.y = .05, add = TRUE)
-  legend(0.2, 0.3, legend=c("AlphScore", "DEOGEN2", "AlphDeogen", "Alph_null"),
+  legend(0.2, 0.3, legend=c("AlphScore", "DEOGEN2", "AlphScore + DEOGEN2", "NullModel"),
          col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
-
+dev.off()
   
-  score_performance_tbl <- rbind(score_performance_tbl, 
-                       tibble(Alph=roc(testSet$outcome, testSet$AlphScore)$auc, 
-                              Alph_null=roc(testSet$outcome, testSet$Alph_null)$auc, 
-                              CADD=roc(testSet$outcome, testSet$CADD_raw)$auc, 
-                              REVEL=roc(testSet$outcome, testSet$REVEL_score)$auc,
-                              DEOGEN2=roc(testSet$outcome, testSet$DEOGEN2_score_med)$auc, 
-                              AlphCadd=roc(testSet$outcome, testSet$glm_AlphCadd)$auc, 
-                              AlphDeogen=roc(testSet$outcome, testSet$glm_AlphDeogen)$auc, 
-                              AlphRevel=roc(testSet$outcome, testSet$glm_AlphRevel)$auc, 
-                              num_test=nrow(testSet) ))
 
-
-
-write_tsv(x=score_performance_tbl, 
-          file="score_performance_tbl.tsv")
-
-score_performance_tbl_spread<-score_performance_tbl%>%
-  select(-num_test)%>%
-  gather(key="method")%>%
-  arrange(value)
-
-score_performance_tbl_spread<-score_performance_tbl_spread%>%
-  mutate(method=factor(method, levels=c("Alph_null","Alph","CADD","AlphCadd","DEOGEN2","AlphDeogen","REVEL","AlphRevel")))
-
-plot_aucs_ClinVar<-ggplot(score_performance_tbl_spread, aes(x=method, y=value))+
-  stat_summary(fun.y = mean, geom = "bar") + 
-  theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
-        axis.text.y = element_text(color="black", size=10))+
-  coord_cartesian(ylim=c(0.5,1)) + 
-  labs(x = "")+
-  labs(y = "AUC (ClinVar test set)", size=12)
-
-plot_aucs_ClinVar
-ggsave(filename= "plot_aucs_ClinVar.pdf", plot=plot_aucs_ClinVar, height=5, width=4)
 
 
 
@@ -251,24 +223,145 @@ pr_alphCadd<-pr.curve(scores.class0=testSet$glm_AlphCadd, weights.class0=testSet
 pr_alph<-pr.curve(scores.class0=testSet$AlphScore, weights.class0=testSet$outcome, curve=T)
 pr_alph_null<-pr.curve(scores.class0=testSet$Alph_null, weights.class0=testSet$outcome, curve=T)
 
-plot(pr_alphCadd, color="red")
-plot(pr_cadd, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
+pdf(file="proc_auc_CADD.pdf")
+  plot(pr_alphCadd, color="red")
+  plot(pr_cadd, add=TRUE, color="blue")
+  plot(pr_alph, add=TRUE, color="black")
+  plot(pr_alph_null, add=TRUE, color="grey")
+  legend(0.2, 0.3, legend=c("AlphScore", "CADD", "AlphScore + CADD", "NullModel"),
+         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
+dev.off()
+
 
 pr_revel<-pr.curve(scores.class0=testSet$REVEL_score, weights.class0=testSet$outcome, curve=T)
 pr_alphRevel<-pr.curve(scores.class0=testSet$glm_AlphRevel, weights.class0=testSet$outcome, curve=T)
-plot(pr_alphRevel, color="red")
-plot(pr_revel, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
+
+pdf(file="proc_auc_REVEL.pdf")
+  plot(pr_alphRevel, color="red")
+  plot(pr_revel, add=TRUE, color="blue")
+  plot(pr_alph, add=TRUE, color="black")
+  plot(pr_alph_null, add=TRUE, color="grey")
+  legend(0.2, 0.3, legend=c("AlphScore", "REVEL", "AlphScore + REVEL", "NullModel"),
+         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
+dev.off()
 
 pr_deogen<-pr.curve(scores.class0=testSet$DEOGEN2_score_med, weights.class0=testSet$outcome, curve=T)
 pr_alphDeogen<-pr.curve(scores.class0=testSet$glm_AlphDeogen, weights.class0=testSet$outcome, curve=T)
-plot(pr_deogen, color="red")
-plot(pr_alphDeogen, add=TRUE, color="blue")
-plot(pr_alph, add=TRUE, color="black")
-plot(pr_alph_null, add=TRUE, color="grey")
+
+pdf(file="proc_auc_DEOGEN2.pdf")
+  plot(pr_alphDeogen, color="red")
+  plot(pr_deogen, add=TRUE, color="blue")
+  plot(pr_alph, add=TRUE, color="black")
+  plot(pr_alph_null, add=TRUE, color="grey")
+  legend(0.2, 0.3, legend=c("AlphScore", "DEOGEN2", "AlphScore + DEOGEN2", "NullModel"),
+         col=c("black", "blue","red", "grey"), lty=1, cex=0.8)
+dev.off()
+
+
+
+# get aucs and do bootstrapping
+get_score_performance_table<-function(testSet_private, i){
+  testSet_private<-testSet_private[i,]
+  score_performance_tbl_private <-
+    tibble(
+      Alph_ROC=roc(testSet_private$outcome, testSet_private$AlphScore)$auc, 
+      Alph_null_ROC=roc(testSet_private$outcome, testSet_private$Alph_null)$auc, 
+      CADD_ROC=roc(testSet_private$outcome, testSet_private$CADD_raw)$auc, 
+      REVEL_ROC=roc(testSet_private$outcome, testSet_private$REVEL_score)$auc,
+      DEOGEN2_ROC=roc(testSet_private$outcome, testSet_private$DEOGEN2_score_med)$auc, 
+      AlphCadd_ROC=roc(testSet_private$outcome, testSet_private$glm_AlphCadd)$auc, 
+      AlphDeogen_ROC=roc(testSet_private$outcome, testSet_private$glm_AlphDeogen)$auc, 
+      AlphRevel_ROC=roc(testSet_private$outcome, testSet_private$glm_AlphRevel)$auc, 
+      
+      Alph_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$AlphScore)$auc.integral, 
+      Alph_null_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$Alph_null)$auc.integral, 
+      CADD_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$CADD_raw)$auc.integral, 
+      REVEL_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$REVEL_score)$auc.integral,
+      DEOGEN2_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$DEOGEN2_score_med)$auc.integral, 
+      AlphCadd_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$glm_AlphCadd)$auc.integral, 
+      AlphDeogen_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$glm_AlphDeogen)$auc.integral, 
+      AlphRevel_PROC=pr.curve(weights.class0=testSet_private$outcome, scores.class0=testSet_private$glm_AlphRevel)$auc.integral,             
+      
+      num_test=nrow(testSet_private) )
+  
+  return(score_performance_tbl_private)
+}
+
+
+get_score_performance_table_boot<-function(testSet_private,i){
+  return(unlist(get_score_performance_table(testSet_private,i)))
+}
+
+score_performance_tbl<-get_score_performance_table(testSet, TRUE)
+
+write_tsv(x=score_performance_tbl, 
+          file="score_performance_tbl.tsv")
+
+
+compare_scores<-function(booted_values_private){
+  booted_values_private_summarised<-booted_values_private %>%
+    rowwise%>%
+    mutate(rowmax=max(across()))%>%
+    mutate(AlphCadd_biggerThanCadd_ROC=AlphCadd_ROC>CADD_ROC)%>%
+    mutate(AlphDeogen_biggerThanDeogen_ROC=AlphDeogen_ROC>DEOGEN2_ROC)%>%
+    mutate(AlphRevel_biggerThanRevel_ROC=AlphRevel_ROC>REVEL_ROC)%>%
+    mutate(AlphCadd_biggerThanCadd_PROC=AlphCadd_PROC>CADD_PROC)%>%
+    mutate(AlphDeogen_biggerThanDeogen_PROC=AlphDeogen_PROC>DEOGEN2_PROC)%>%
+    mutate(AlphRevel_biggerThanRevel_PROC=AlphRevel_PROC>REVEL_PROC)
+  return(booted_values_private_summarised)
+}
+
+get_p_value_table<-function(booted_values_summarised_private){
+  relevant_scores<-c("AlphDeogen_biggerThanDeogen_ROC","AlphRevel_biggerThanRevel_ROC","AlphCadd_biggerThanCadd_ROC",
+                     "AlphDeogen_biggerThanDeogen_PROC","AlphRevel_biggerThanRevel_PROC","AlphCadd_biggerThanCadd_PROC")
+  p_val_tabl<-tibble()
+  for (columname in relevant_scores){
+    p_val_tabl<- rbind(p_val_tabl, 
+                       tibble(name=columname, num_true=sum(unlist(booted_values_summarised_private[,columname])), total_num=nrow(booted_values_summarised_private)))
+  }
+  return(p_val_tabl)
+}
+
+boot_aucs<-boot(data=testSet, statistic=get_score_performance_table_boot, R=BOOT_REPETITIONS, parallel="multicore", ncpus=3)
+booted_aucs_table<-as_tibble(boot_aucs$t)
+colnames(booted_aucs_table)<-colnames(score_performance_tbl)
+booted_aucs_table<-compare_scores(booted_aucs_table)
+pValTable_AbsCor<-get_p_value_table(booted_aucs_table)
+pValTable_AbsCor<-pValTable_AbsCor%>% 
+  mutate(pval=1-num_true/total_num)
+pValTable_AbsCor
+
+write_tsv(x = pValTable_AbsCor,
+          file = "pValTable_AbsCor.tsv")
+
+
+
+# Diagram with ROCs
+
+score_performance_tbl_spread<-score_performance_tbl%>%
+  select(-num_test)%>%
+  gather(key="method")%>%
+  arrange(value)
+
+score_performance_tbl_spread<-score_performance_tbl_spread%>%
+  mutate(method=factor(method, levels=c("Alph_null_ROC","Alph_ROC","CADD_ROC","AlphCadd_ROC","DEOGEN2_ROC","AlphDeogen_ROC","REVEL_ROC","AlphRevel_ROC")))
+
+plot_aucs_ClinVar<-ggplot(score_performance_tbl_spread, aes(x=method, y=value))+
+  stat_summary(fun.y = mean, geom = "bar") + 
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
+        axis.text.y = element_text(color="black", size=10))+
+  coord_cartesian(ylim=c(0.5,1)) + 
+  labs(x = "")+
+  labs(y = "AUC (ClinVar test set)", size=12)
+
+plot_aucs_ClinVar
+ggsave(filename= "plot_aucs_ClinVar.pdf", plot=plot_aucs_ClinVar, height=5, width=4)
+
+
+
+
+
 
 
 datasets_venn<-venn.diagram(x=list(gnomad_dataset$ID, interim_dataset$ID, testSet$ID), 
@@ -276,3 +369,4 @@ datasets_venn<-venn.diagram(x=list(gnomad_dataset$ID, interim_dataset$ID, testSe
              filename = NULL)
 
 ggsave(datasets_venn, file="datasets_venn.pdf", device = "pdf", width=6, height=6)
+

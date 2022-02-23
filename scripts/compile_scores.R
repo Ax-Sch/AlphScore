@@ -1,8 +1,23 @@
 library(tidyverse)
 library(readxl)
-list_uniprot_ids<-read_tsv("resources/mapping_genename_uniprot.tsv")
+library(data.table)
+library(optparse)
 
-PREDICTED_PROT_SUFFIX="_w_AlphScore_red_FALSE.csv.gz"
+option_list = list(
+  make_option(c("-m", "--mapping"), type="character", default="resources/mapping_genename_uniprot.tsv", 
+              help="location of file that maps gene name in assay to UniProt ID"),
+  make_option(c("-p", "--prot_folder"), type="character", default="data/predicted_prots_eval", 
+              help="Folder with protein files with AlphScore predictions"),
+  make_option(c("-a", "--suffix"), type="character", default="_w_AlphScore_red_FALSE.csv.gz", 
+              help="suffix that protein files with AlphScore predictions have")
+)
+opt = parse_args(OptionParser(option_list=option_list))
+
+list_uniprot_ids<-read_tsv(opt$mapping)
+PREDICTED_PROT_SUFFIX=opt$suffix
+folder_of_prots=opt$prot_folder
+
+# MAPK1	/ Uniprot P28482 not in mapping file, as this was not mapped between Uniprot and dbNSFP
 
 sheets<-c("ADRB2","BRCA1","CALM1", "HRAS", "MAPK1", "P53",  "PTEN", "SUMO1", "TPK1", "TPMT", "UBE2I")
 scores_conc<-tibble()
@@ -21,8 +36,7 @@ scores <- read_excel("resources/MSH2_Jia_2020/1-s2.0-S0002929720304390-mmc2.xlsx
   select(variant, starts_with("DMS"))%>%
   mutate(gene="MSH2")%>%
   gather(key="DMS", value="DMS_val", -variant, -gene)
-  scores_conc=rbind(scores_conc, scores)
-
+scores_conc=rbind(scores_conc, scores)
 
 #Abeta
 scores <- read_excel("resources/Abeta_Seuma_2020/elife-63364-supp4-v2.xlsx", sheet="1 aa change")%>%
@@ -31,29 +45,7 @@ scores <- read_excel("resources/Abeta_Seuma_2020/elife-63364-supp4-v2.xlsx", she
     select(variant, starts_with("DMS"))%>%
     mutate(gene="Abeta")%>%
     gather(key="DMS", value="DMS_val", -variant, -gene)
-  scores_conc=rbind(scores_conc, scores)
-  
-  
-RASH_path="resources/RASH_Bandaru_2017_regulated/elife-27810-supp1-v2.xlsx"
-for (gene in excel_sheets(RASH_path)){
-  mut_matrix<-read_excel(RASH_path, sheet=gene)
-  amino_acid_pos<-as.vector(colnames(mut_matrix))
-  amino_acid_ref<-as.vector(unlist(mut_matrix[1,]))
-  
-  mut_matrix<-as.tibble(t(mut_matrix[2:nrow(mut_matrix),]))
-  colnames(mut_matrix)<-as.vector(unlist(mut_matrix[1,]))
-  mut_matrix$pos<-amino_acid_pos
-  mut_matrix$ref<-amino_acid_ref
-  mut_matrix<-mut_matrix[2:nrow(mut_matrix),] %>% 
-    gather(key="alt",value="DMS_val", -pos, -ref)%>%
-    filter(ref!=alt)%>%
-    mutate(variant=paste0(ref, pos, alt))%>%
-    mutate(DMS="DMS", 
-           gene="RASH")%>%
-    select(variant, gene, DMS, DMS_val)
-  scores_conc=rbind(scores_conc, mut_matrix)
-
-}
+scores_conc=rbind(scores_conc, scores)
 
 
 #VKOR1
@@ -68,14 +60,11 @@ scores_conc=rbind(scores_conc, scores)
 scores_conc<-scores_conc %>% 
   filter(!is.na(DMS_val))%>%
   left_join(list_uniprot_ids, by=c("gene"="gene_name"))%>%
-  rename(gene_dms=gene)
+  rename(gene_dms=gene)%>% 
+  filter(!is.na(uniprot_id))
 
 
-
-##### combine vals
-library(data.table)
-
-files<-paste0("data/predicted_prots/", list_uniprot_ids$uniprot_id, PREDICTED_PROT_SUFFIX) 
+files<-paste0(folder_of_prots, list_uniprot_ids$uniprot_id, PREDICTED_PROT_SUFFIX) 
 
 values_joined<-lapply(files, function(x) { #  mc.cores = 1,
   return(fread(x, na.strings = c("NA","."))  ) } )

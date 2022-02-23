@@ -1,6 +1,6 @@
 configfile: "config/config.yaml"
 chroms=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X"]
-testing=False
+testing=True
 
 import subprocess
 import os
@@ -12,7 +12,7 @@ dbNSFP_file=pd.read_csv("config/dbnsfp_files.txt", names=["uniprot_ids"])
 # if just a subset of the pdbs should be processsed for testing, set testing=True above
 if testing == True:
 	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
-	dbNSFP_file=dbNSFP_file.iloc[0:1]
+	dbNSFP_file=dbNSFP_file.iloc[0:100]
 
 PDB_file=pd.read_csv("config/pdb_ids.txt", names=["PDB_ID"])
 PDB_file[["prefix","uniprot_ids","model","postfix"]]=PDB_file["PDB_ID"].str.split("-", expand=True,)
@@ -24,22 +24,24 @@ relevant_alphafold_models=PDB_dbNSFP["PDB_ID"].tolist()
 
 rule all:
 	input:
-#		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
-#		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
-#		"data/joined_grid/joined_grid.tsv",
-#		"data/prediction_final/final_regular_written_full_model.RData",
-#		"data/prediction_final/final_nopLDDT_written_full_model.RData",
-#		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
-#		"data/validation_set/validation_set_w_AlphScore.csv.gz",
-#		"data/analyse_score/spearman_plot.pdf",
-#		"data/plot_k/barplot_preprocessed.pdf",
-#		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
-#		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
-#		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
-#		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
-#		"data/merge_eval/all_possible_values_concat.csv.gz",
-#		"data/merge_final/all_possible_values_concat.csv.gz",
-		"data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz"
+		"data/train_testset1/gnomad_extracted_prepro_rec.csv.gz",
+		expand("data/prediction/{prefix}_results.tsv", prefix=grid_search_table["prefix"].to_list()),
+		"data/joined_grid/joined_grid.tsv",
+		"data/prediction_final/final_regular_written_full_model.RData",
+		"data/prediction_final/final_nopLDDT_written_full_model.RData",
+		"data/prediction_final/pre_final_model_NullModel_variants.csv.gz",
+		"data/validation_set/validation_set_w_AlphScore.csv.gz",
+		"data/analyse_score/spearman_plot.pdf",
+		"data/plot_k/barplot_preprocessed.pdf",
+		"data/plot_k/pre_final_model_regular_importance_permutation.pdf",
+		"data/clinvar2022/values_of_clinvar_variants.tsv.gz",
+		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
+		expand("data/predicted_prots/{uniprot_id}_w_AlphScore_red_TRUE.csv.gz", uniprot_id=relevant_uniprot_ids),
+		"data/merge_eval/all_possible_values_concat.csv.gz",
+		"data/merge_final/all_possible_values_concat.csv.gz",
+		"data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz",
+		"data/merge_final/all_deduplicated.tsv.gz",
+		"data/final_model_curves/AlphScorePlot_FINAL.pdf"
 
 
 rule download_dbNSFP_AlphaFold_files:
@@ -205,6 +207,7 @@ rule get_feature_HSE:
 		resi_count=len(exp_ca.keys())
 		list_RESI_HSE=[ [exp_ca.keys()[i][1][1], exp_ca.property_list[i][1][0], exp_ca.property_list[i][1][1] ] for i in range(0, resi_count)]
 		df_HSE=pd.DataFrame(list_RESI_HSE)
+		# manual check: HSE1=upper sphere, HSE2=lower sphere
 		df_HSE.columns =['RESI','HSE1','HSE2']
 		df_HSE.index=df_HSE.RESI
 		df_HSE.to_csv(output[0], index=False)
@@ -537,7 +540,8 @@ rule create_final_combined_model:
 
 rule create_validation_set_DMS:
 	input:
-		expand("data/predicted_prots_eval/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz", uniprot_id=["P01112","P04637","P05067", 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"])
+		expand("data/predicted_prots_eval/{uniprot_id}_w_AlphScore_red_FALSE.csv.gz", uniprot_id=["P01112","P04637","P05067", 		"P07550","P0DP23","P38398","P43246","P51580","P60484","P63165","P63279","Q9BQB6","Q9H3S4"]),
+		map_file="resources/mapping_genename_uniprot.tsv"
 	output:
 		compiled="data/validation_set/validation_set_w_AlphScore.csv.gz",
 	resources: cpus=1, mem_mb=18000, time_job=480
@@ -545,7 +549,10 @@ rule create_validation_set_DMS:
 		partition=config["short_partition"]
 	shell:
 		"""
-		Rscript scripts/compile_scores.R
+		Rscript scripts/compile_scores.R \
+		--prot_folder="data/predicted_prots_eval/" \
+		--suffix="_w_AlphScore_red_FALSE.csv.gz" \
+		--mapping={input.map_file}
 		"""
 
 rule evaluate_performance_on_DMS_data:
@@ -662,20 +669,66 @@ rule get_clinvar_2022_vars:
 		tabix $old_wd"/"{input.values} -R varlist_clinvar_2022.txt | cat headerPostTabix.txt - | gzip > values_of_clinvar_variants.tsv.gz
 		"""
 
-rule get_clinvar_2022_vars_FINAL:
+rule remove_duplicate_vars_in_FINAL:
 	input:
 		values="data/merge_final/all_possible_values_concat.csv.gz",
-		header="data/clinvar2022/headerPostTabix.txt",
+		header="data/merge_final/header.csv",
+	output:
+		duplicate_list="data/merge_final/duplicate_list.txt",
+		tab_header="data/merge_final/tab_header.tsv",
+		duplicated_vars="data/merge_final/all_possible_values_dups.csv.gz",
+		deduplicated_duplicates="data/merge_final/deduplicated_vars_bind.tsv",
+		all_deduplicated="data/merge_final/all_deduplicated.tsv.gz",
+		all_deduplicated_tbi="data/merge_final/all_deduplicated.tsv.gz.tbi"
+	resources: cpus=1, mem_mb=10000, time_job=480
+	params:
+		partition=config["short_partition"],
+		temp="data/merge_final/tmp"
+	shell:
+		"""
+		mkdir -p {params.temp}
+		
+		zcat {input.values} | cut -f10 | \
+		 uniq -d | uniq > {output.duplicate_list}
+		  
+		cat {input.header} | tr "," "\t" > {output.tab_header}
+		
+		zcat {input.values} | grep -f {output.duplicate_list} | \
+		 cat {output.tab_header} - | bgzip > {output.duplicated_vars}
+		
+		# deduplicate variants
+		Rscript scripts/remove_duplicates_from_final_score.R \
+		 --dup_vars {output.duplicated_vars} \
+		 --out_file {output.deduplicated_duplicates}
+		
+		# merge unique and deduplicated vars
+		zcat {input.values} | tail -n +2 | \
+		 grep -v -f {output.duplicate_list} | \
+		 cat - {output.deduplicated_duplicates} | \
+		 sort -V -t, -T {params.temp} -k1 -k2 - | \
+		 cat  {output.tab_header} - | \
+		 bgzip > {output.all_deduplicated}
+		 
+		tabix -s 1 -b 2 -e 2 {output.all_deduplicated}
+		 
+		rm -rf {params.temp}				
+		"""
+
+
+rule get_clinvar_2022_vars_FINAL:
+	input:
+		values="data/merge_final/all_deduplicated.tsv.gz",
+		tab_header="data/merge_final/tab_header.tsv",
 		varlist="data/clinvar2022/varlist_clinvar_2022.txt"
 	output:
-		"data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz"
+		cv_vars="data/clinvar2022/values_of_clinvar_variants_FINAL.tsv.gz"
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"],
 		out_folder="data/clinvar2022/"
 	shell:
 		"""
-		tabix {input.values} -R {input.varlist} | cat {input.header} - | gzip > {output}
+		tabix {input.values} -R {input.varlist} | cat {input.tab_header} - | gzip > {output.cv_vars}
 		"""
 
 
@@ -686,8 +739,8 @@ rule evaluate_performance_on_clinvar:
 		cv_scores="data/clinvar2022/values_of_clinvar_variants.tsv.gz",
 		variants="data/prediction_final/pre_final_model_regular_variants.csv.gz"	
 	output:
-		"data/clinvar2022_alphafold/plot_aucs_ClinVar.pdf",
-		"data/clinvar2022_alphafold/meanSemAUCs.tsv"
+		"data/clinvar2022_alphafold/ClinVar_val_REVEL.pdf",
+		"data/clinvar2022_alphafold/score_performance_tbl.tsv"
 	resources: cpus=1, mem_mb=20000, time_job=480
 	params:
 		partition=config["short_partition"],
@@ -711,20 +764,22 @@ rule get_curves_of_final_model:
 		cv_patho="data/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		cv_ben="data/clinvar2022/clinvar_2022_benign.vcf.gz",
 	output:
-		figure="data/final_model_curves/AlphScorePlot.pdf"
+		figure="data/final_model_curves/AlphScorePlot_FINAL.pdf"
 	resources: cpus=1, time_job=60, mem_mb=35000
 	params:
 		partition=config["short_partition"],
 		out_folder="data/final_model_curves/"
 	shell:
 		"""
-		Rscript scripts/get_performance_clinvar_2022.R \
+		Rscript scripts/histogramsFinalModel.R \
 		--clinvar_benign {input.cv_ben} \
 		--clinvar_pathogenic {input.cv_patho} \
 		--AlphaFold_scores {input.cv_scores} \
 		--variants {input.variants} \
 		--out_folder {params.out_folder} 
 		"""
+
+
 
 # count number of variants dbNSFP vs. 
 # zcat all_possible_values_concat.csv.gz | cut -f10 | gzip > gen_vars.txt.gz
