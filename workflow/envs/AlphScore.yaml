@@ -1,0 +1,28 @@
+name: AlphScore
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-tidyverse
+  - r-ranger
+  - r-xgboost
+  - r-venndiagram
+  - r-optparse
+  - r-proc
+  - r-readxl
+  - r-caret
+  - biopython
+  - r-essentials
+  - r-data.table
+  - r-proc
+  - networkx
+  - numpy
+  - r-readxl
+  - pandas
+  - r-base
+  - snakemake=6
+  - biopandas
+  - r-r.utils
+  - tabix
+  - r-gridextra
