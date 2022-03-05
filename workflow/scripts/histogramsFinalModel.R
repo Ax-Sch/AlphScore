@@ -2,8 +2,8 @@ library(tidyverse)
 library(optparse)
 library(pROC)
 
-source("scripts/existing_scores_glm_functions.R")
-source("scripts/precision_recall_resource.R")
+source("workflow/scripts/existing_scores_glm_functions.R")
+source("workflow/scripts/precision_recall_resource.R")
 
 option_list = list(
   make_option(c("-b", "--clinvar_benign"), type="character", default="results/clinvar2022/clinvar_2022_benign.vcf.gz", 

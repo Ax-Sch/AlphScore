@@ -3,7 +3,7 @@ library(pROC)
 library(gridExtra)
 library(optparse)
 library(boot)
-source("scripts/existing_scores_glm_functions.R")
+source("workflow/scripts/existing_scores_glm_functions.R")
 BOOT_REPETITIONS=1000
 N_CPU=3
 COL_ORDER=c("Alph_null","AlphScore","CADD_raw","DEOGEN2_score_med","REVEL_score","glm_AlphCadd","glm_AlphDeogen",

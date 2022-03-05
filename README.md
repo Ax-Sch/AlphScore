@@ -1,4 +1,4 @@
-# AlphScore
+# Source code of AlphScore
 
 This code belongs to the project "Predicting the pathogenicity of missense variants using features derived from AlphaFold2". This is the source code of the project; precalculated scores are deposited under the DOI 10.5281/zenodo.6288139 . 
 
@@ -18,38 +18,36 @@ cd AlphScore/tools
 git clone https://github.com/Ax-Sch/protinter.git
 chmod +x protinter/protinter
 cd ../
-chmod +x tools/dssp/mkdssp
-```
-Additionally, dssp (version 3) is required. For ease of installation the dssp executable and the required Boost libraries are provided within the folder tools/dssp. Note that the Boost software license applies, which can be found in tools/dssp/LICENSE_1_0.txt . DSSP has additional dependencies (e.g. libc6, libgcc1, libstdc++6) which might not be installed on your system; if this is the case you could try to install dssp/mkdssp via the package manager of your (linux) operating system. To check if the provided dssp executable works, execute the following commands in the AlphScore folder:
-
-```
-export LD_LIBRARY_PATH="tools/dssp/"
-tools/dssp/mkdssp
 ```
 
-Additionally the feature framework version 3.1.0 needs to be obtained from the following website: https://simtk.org . Its executable should be located in the following path: tools/feature/feature-3.1.0/bin/featurize 
-Ensure that the executable works proberly:
-
-```
-chmod +x tools/feature/feature-3.1.0/bin/featurize
-tools/feature/feature-3.1.0/bin/featurize
-```
-
-If you do not have conda installed, obtain it e.g. from https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ) and set up the conda environment:
+If you do not have conda installed, please now obtain it e.g. from https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html ) and set up the main conda environment and the conda environment in which the FEATURE framework will run:
 
 ```
 conda env update --file workflow/envs/AlphScore.yaml
-conda activate AlphScore
+conda env update --file workflow/envs/dssp.yaml
 ```
 
+Additionally the FEATURE framework version 3.1.0 needs to be obtained from the following website: https://simtk.org . To install the feature framework place the file feature-3.1.0-src.tar.gz (obtained from simtk.org) to the folder tools/feature. Then execute the following commands:
+
+```
+cd tools/feature
+conda activate DSSP
+tar -xf feature-3.1.0-src.tar.gz 
+cd feature-3.1.0/
+make
+cd ../../..
+```
+After this, the executable of FEATURE should be located in the following path: tools/feature/feature-3.1.0/bin/featurize 
 
 ### Run the snakemake pipeline
 The snakemake pipeline can then be run by executing the following command.
 
 ```
-snakemake --cores [number of cores you have]
+conda activate AlphScore
+snakemake --cores [number of cores you would like to use] --use-conda --conda-frontend conda
 ```
 
-The snakemake pipeline will execute >100,000 jobs. To perform the computation on a reduced set of ~110 proteins, you can set the variable testing=True at the beginning of the pipeline. This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. If you have any questions do not hesitate to contact me.
+At the top of the file workflow/Snakefile the variable testing is set to True (testing=True). This reduces the computation to a set of about 210 proteins, to test if everything works as expected without the need of processing all proteins. You can set the variable testing to False (change testing=True to testing=False) to run all proteins, which will result in >100,000 jobs. This code was tested on a HPC cluster with CentOS Linux 7, miniconda3 and the job scheduler Slurm. 
 
+If you have any questions do not hesitate to contact me.
 

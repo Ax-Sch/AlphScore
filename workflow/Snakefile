@@ -12,12 +12,10 @@ dbNSFP_file=pd.read_csv("config/dbnsfp_files.txt", names=["uniprot_ids"])
 
 # if just a subset of the pdbs should be processsed for testing, set testing=True above
 if testing == True:
-	#grid_search_table=grid_search_table.iloc[[0,5]] # testing
-	dbNSFP_file=dbNSFP_file.iloc[0:100]
+	grid_search_table=grid_search_table.iloc[[0,5]] # testing
+	dbNSFP_file=dbNSFP_file.iloc[1000:1200]
 	pd_DMS_uniprot_ids=pd.DataFrame(DMS_uniprot_ids, columns=["uniprot_ids"])
 	dbNSFP_file=dbNSFP_file.append(pd_DMS_uniprot_ids)
-
-print(dbNSFP_file)
 
 PDB_file=pd.read_csv("config/pdb_ids.txt", names=["PDB_ID"])
 PDB_file[["prefix","uniprot_ids","model","postfix"]]=PDB_file["PDB_ID"].str.split("-", expand=True,)
@@ -57,7 +55,6 @@ rule download_AlphaFold_files:
 		alphafold="results/pdb_files",
 		partition=config["long_partition"]
 	resources: time_job=4800, mem_mb=8000
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		homedir=$(pwd)
@@ -78,7 +75,6 @@ rule download_dbNSFP_files:
 		dbNSFP="results/dbNSFP_raw",
 		partition=config["long_partition"]
 	resources: time_job=4800, mem_mb=8000
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		homedir=$(pwd)
@@ -106,7 +102,6 @@ rule split_dbNSFP:
 		outdir="results/split_dbNSFP/by_uniprotID/",
 		partition=config["short_partition"]
 	resources: time_job=480, mem_mb=5000
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		homedir=$(pwd)
@@ -124,7 +119,7 @@ rule split_dbNSFP:
 		
 		for file in $(find * -maxdepth 0 -type f)
 		do
-		python $homedir"/scripts/split_dbNSFP_unnest.py" $homedir"/config/pdb_ids.txt" $(pwd)"/header/header.txt" $file $homedir"/"{params.outdir}
+		python $homedir"/workflow/scripts/split_dbNSFP_unnest.py" $homedir"/config/pdb_ids.txt" $(pwd)"/header/header.txt" $file $homedir"/"{params.outdir}
 		done
 		
 		cd $homedir
@@ -139,11 +134,11 @@ rule get_FEATURE_DSSP:
 	params:
 		partition=config["short_partition"],
 	resources: time_job=20
-	conda: "envs/alph_general.yaml"
+	conda: "envs/dssp.yaml"
 	shell:
 		"""
 		feature="$(pwd)/"{config[feature_folder]}"bin/featurize"
-		export FEATURE_DIR="$(pwd)/"{config[feature_folder]}"results/"
+		export FEATURE_DIR="$(pwd)/"{config[feature_folder]}"data/"
 		work_dir="results/pdb_features/{wildcards.pdb_name}/"
 		temp_pdb=$work_dir"1A1A.pdb"
 		
@@ -153,12 +148,9 @@ rule get_FEATURE_DSSP:
 		mkdir -p $work_dir
 		gunzip -c "{input}" > $temp_pdb
 		
-		export LD_LIBRARY_PATH={config[dssp_dir]}
-		
 		#run dssp
 		cat $temp_pdb | {config[dssp_bin]} -i /dev/stdin > $work_dir"1A1A.dssp"
 		echo 1A1A > $work_dir"pdb_id"
-		echo  $work_dir"1A1A.dssp"
 		
 		$feature $temp_pdb -n1 -w0.2 | grep ":A@CA$" > $work_dir"{wildcards.pdb_name}_core.txt"
 		$feature $temp_pdb -n1 -w3 | grep ":A@CA$" > $work_dir"{wildcards.pdb_name}_3A.txt"
@@ -177,7 +169,6 @@ rule get_feature_protinter_interactions:
 	params:
 		partition=config["short_partition"]
 	resources: time_job=60
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		protinter="$(pwd)/"{config[protinter_bin]}
@@ -264,7 +255,6 @@ rule combine_features_pdb_level:
 		header_feature="resources/header_featurize.txt",
 		partition=config["short_partition"]
 	resources: time_job=480, mem_mb=8000
-	conda: "envs/alph_general.yaml"
 	script:
 		"scripts/combine_features_pdb_level.py"
 
@@ -281,7 +271,6 @@ rule add_graph_based_analysis_pdb_level:
 		pdb_path=config["pdb_dir"]+"{pdb_name}.pdb",
 		partition=config["short_partition"]
 	resources: time_job=240, mem_mb=15000
-	conda: "envs/alph_general.yaml"
 	script:
 		"scripts/graph_based_analysis_pdb_level.py"
 		
@@ -334,7 +323,6 @@ rule extract_clinvar_gnomad_sets:
 		partition=config["short_partition"],
 		loaction_csvgzs="results/combine2_protein/"
 	resources: time_job=480, mem_mb=64000
-	conda: "envs/alph_general.yaml"
 	script:
 		"scripts/extract_clinvar_gnomad_sets.R"
 
@@ -347,11 +335,10 @@ rule preprocess_clinvar_gnomad_set:
 	resources: cpus=1, mem_mb=64000, time_job=480
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/preprocess.R -i {input} -o {output.preprocessed}
-		Rscript scripts/recalibrate_variants.R -i {output.preprocessed} -o {output.recalibrated} \
+		Rscript workflow/scripts/preprocess.R -i {input} -o {output.preprocessed}
+		Rscript workflow/scripts/recalibrate_variants.R -i {output.preprocessed} -o {output.recalibrated} \
 		--undersample FALSE
 		"""
 
@@ -369,20 +356,19 @@ rule check_properties_clinvar_gnomad_set:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/plot_k/"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/Fig_recal.R \
+		Rscript workflow/scripts/Fig_recal.R \
 		--input_preprocessed {input.preprocessed} \
 		--input_recalibrated {input.recalibrated} \
 		--out_folder {params.out_folder} 
 
-		Rscript scripts/AA_freq.R \
+		Rscript workflow/scripts/AA_freq.R \
 		--input_recalibrated {input.recalibrated} \
 		--excel_location {input.excel} \
 		--out_folder {params.out_folder} 
 
-		Rscript scripts/char_variants.R \
+		Rscript workflow/scripts/char_variants.R \
 		--csv_location {input.recalibrated} \
 		--out_folder {params.out_folder} 
 		"""
@@ -400,7 +386,7 @@ rule training_do_grid_search:
 	run:
 		import os
 		parameters=grid_search_table[grid_search_table["prefix"]==wildcards[0]]
-		os.system('Rscript scripts/prediction.R --prefix ' + 
+		os.system('Rscript workflow/scripts/prediction.R --prefix ' + 
 			wildcards[0] + " --excel_location " + input[0] + 
 			" --csv_location " + input[1] + 
 			" --out_folder " + params[1] +
@@ -414,7 +400,6 @@ rule join_grid_search_files:
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		mkdir -p "results/joined_grid"
@@ -457,7 +442,7 @@ rule fit_models_w_final_settings_from_grid_search:
 		#manual selection:
 		#parameters=grid_search_table[grid_search_table["prefix"]=="randomforest_4000_12_500_0.999999_0_0_90_0_0_regCols"] 
 
-		base_command=('Rscript scripts/prediction.R ' +
+		base_command=('Rscript workflow/scripts/prediction.R ' +
 			' --csv_location ' + input[1] + 
 			' --out_folder ' + params[1] +
 			' ' + ' '.join(parameters.iloc[0,1:].to_list()) )
@@ -511,10 +496,9 @@ rule predict_Alphscore_protein_level_for_evaluation:
 	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/predict_w_ranger_model_for_Evaluation.R \
+		Rscript workflow/scripts/predict_w_ranger_model_for_Evaluation.R \
 		--csv_location {input.csv} \
 		--model_location {input.model} \
 		--use_cols_file {input.colnames} \
@@ -539,10 +523,9 @@ rule predict_Alphscore_protein_level_Final:
 	resources: cpus=1, time_job=30, mem_mb=lambda wildcards : 4000+1000*len([el.rstrip("\n") for el in relevant_alphafold_models if el.split("-")[1] in wildcards.uniprot_id])
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/predict_w_ranger_model_Final.R \
+		Rscript workflow/scripts/predict_w_ranger_model_Final.R \
 		--csv_location {input.csv} \
 		--model_location {input.model_Full} \
 		--use_cols_file {input.colnames_Full} \
@@ -562,10 +545,9 @@ rule create_final_combined_model:
 	resources: cpus=1, time_job=60, mem_mb=35000
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/create_final_combined_models.R \
+		Rscript workflow/scripts/create_final_combined_models.R \
 		--training_dataset {input.training_dataset} \
 		--combined_model {output.combined_model} \
 		--training_var_ids {output.training_var_ids}
@@ -580,10 +562,9 @@ rule create_validation_set_DMS:
 	resources: cpus=1, mem_mb=18000, time_job=480
 	params:
 		partition=config["short_partition"]
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/compile_scores.R \
+		Rscript workflow/scripts/compile_scores.R \
 		--prot_folder="results/predicted_prots_eval/" \
 		--suffix="_w_AlphScore_red_FALSE.csv.gz" \
 		--mapping={input.map_file}
@@ -599,10 +580,9 @@ rule evaluate_performance_on_DMS_data:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/analyse_score/"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/analyse_DMS_score.R \
+		Rscript workflow/scripts/analyse_DMS_score.R \
 		--variants {input.test_dataset} \
 		--validation_set {input.compiled} \
 		--out_folder {params.out_folder}
@@ -623,16 +603,15 @@ rule plot_feature_importance:
 		partition=config["short_partition"],
 		out_folder="results/plot_k/",
 		prefix="pre_final_model_regular"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/Fig_feat_imp.R \
+		Rscript workflow/scripts/Fig_feat_imp.R \
 		--input_impurity {input.impurity} \
 		--input_permutation {input.permutation} \
 		--prefix {params.prefix}  \
 		--out_folder {params.out_folder} 
 
-		Rscript scripts/Fig_auc_cv.R \
+		Rscript workflow/scripts/Fig_auc_cv.R \
 		--tsv_location {input.tsv_location} \
 		--out_folder {params.out_folder} 
 		"""
@@ -649,9 +628,8 @@ rule merge_proteins_w_Alph_predictions:
 		in_folder="results/predicted_prots_{EvalFinal}/",
 		out_folder="results/merge_{EvalFinal}/"
 	resources: time_job=4800, mem_mb=8000
-	conda: "envs/alph_general.yaml"
 	shell:
-		"scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
+		"workflow/scripts/combine_all_proteins_to_one_file.sh {params.in_folder} {params.out_folder}"
 
 rule get_clinvar_2022_vars:
 	input:
@@ -666,7 +644,8 @@ rule get_clinvar_2022_vars:
 	resources: cpus=1, mem_mb=5000, time_job=480
 	params:
 		partition=config["short_partition"],
-		out_folder="results/clinvar2022/"
+		out_folder="results/clinvar2022/",
+		clinvar_adress=config["clinvar_link"]		
 	shell:
 		"""
 		old_wd=$(pwd)
@@ -674,7 +653,7 @@ rule get_clinvar_2022_vars:
 		cd {params.out_folder}
 		
 		#get clinvar2022
-		wget -nc https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar_20220109.vcf.gz
+		wget -nc {params.clinvar_adress}
 		
 		# filter for benign / pathogenic missense variants
 		zcat clinvar_20220109.vcf.gz | grep "^#CHR" | sed "s/#//g" > header_clinvar_vcf.txt
@@ -704,21 +683,28 @@ rule remove_duplicate_vars_in_FINAL:
 	params:
 		partition=config["short_partition"],
 		temp="results/merge_final/tmp"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		mkdir -p {params.temp}
 		
 		zcat {input.values} | cut -f10 | \
 		 uniq -d | uniq > {output.duplicate_list}
-		  
+
+		  cat {output.duplicate_list}
 		cat {input.header} | tr "," "\t" > {output.tab_header}
+		
+ 		lines_dupl=$(wc -l {output.duplicate_list})
+		
+		if [ $lines_dupl -gt 0 ]
+		then
+
+		echo "duplicated variants present"
 		
 		zcat {input.values} | grep -f {output.duplicate_list} | \
 		 cat {output.tab_header} - | bgzip > {output.duplicated_vars}
 		
 		# deduplicate variants
-		Rscript scripts/remove_duplicates_from_final_score.R \
+		Rscript workflow/scripts/remove_duplicates_from_final_score.R \
 		 --dup_vars {output.duplicated_vars} \
 		 --out_file {output.deduplicated_duplicates}
 		
@@ -729,10 +715,23 @@ rule remove_duplicate_vars_in_FINAL:
 		 sort -V -t, -T {params.temp} -k1 -k2 - | \
 		 cat  {output.tab_header} - | \
 		 bgzip > {output.all_deduplicated}
+		
+		else
+		
+		echo "no duplicated variants present"
+				
+		touch {output.duplicated_vars}
+		touch {output.deduplicated_duplicates}
+		
+		zcat {input.values} | tail -n +2 | \
+		 cat  {output.tab_header} - | \
+		 bgzip > {output.all_deduplicated}
 		 
+		fi
+		
 		tabix -s 1 -b 2 -e 2 {output.all_deduplicated}
-		 
 		rm -rf {params.temp}				
+		
 		"""
 
 
@@ -747,7 +746,6 @@ rule get_clinvar_2022_vars_FINAL:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/clinvar2022/"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
 		tabix {input.values} -R {input.varlist} | cat {input.tab_header} - | gzip > {output.cv_vars}
@@ -767,10 +765,9 @@ rule evaluate_performance_on_clinvar:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/clinvar2022_alphafold/"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/get_performance_clinvar_2022.R \
+		Rscript workflow/scripts/get_performance_clinvar_2022.R \
 		--clinvar_benign {input.cv_ben} \
 		--clinvar_pathogenic {input.cv_patho} \
 		--AlphaFold_scores {input.cv_scores} \
@@ -791,10 +788,9 @@ rule get_curves_of_final_model:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/final_model_curves/"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/histogramsFinalModel.R \
+		Rscript workflow/scripts/histogramsFinalModel.R \
 		--clinvar_benign {input.cv_ben} \
 		--clinvar_pathogenic {input.cv_patho} \
 		--AlphaFold_scores {input.cv_scores} \
@@ -812,10 +808,9 @@ rule plot_plddt:
 	params:
 		partition=config["short_partition"],
 		out_folder="results/pLDDT"
-	conda: "envs/alph_general.yaml"
 	shell:
 		"""
-		Rscript scripts/plot_pLDDT_vs_CV_gnomAD.R \
+		Rscript workflow/scripts/plot_pLDDT_vs_CV_gnomAD.R \
 		--variants {input.variants} \
 		--out_folder {params.out_folder}
 		"""

@@ -4,6 +4,9 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - biopython
+  - r-r.utils
+  - r-base
   - r-tidyverse
   - r-ranger
   - r-xgboost
@@ -12,17 +15,19 @@ dependencies:
   - r-proc
   - r-readxl
   - r-caret
-  - biopython
+  - r-gridextra
+  - r-proc
   - r-essentials
   - r-data.table
-  - r-proc
+  - r-boot
+  - r-readxl
+  - r-prroc
+  - libgomp
   - networkx
   - numpy
-  - r-readxl
   - pandas
-  - r-base
   - snakemake=6
   - biopandas
-  - r-r.utils
   - tabix
-  - r-gridextra
+  - pip:
+    - biographs

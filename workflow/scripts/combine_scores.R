@@ -2,7 +2,7 @@ library(tidyverse)
 library(pROC)
 library(gridExtra)
 library(optparse)
-source("scripts/existing_scores_glm_functions.R")
+source("workflow/scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(

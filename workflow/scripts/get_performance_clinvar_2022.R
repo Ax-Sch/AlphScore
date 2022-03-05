@@ -5,8 +5,8 @@ library(PRROC)
 library(VennDiagram)
 library(boot)
 
-source("scripts/existing_scores_glm_functions.R")
-source("scripts/precision_recall_resource.R")
+source("workflow/scripts/existing_scores_glm_functions.R")
+source("workflow/scripts/precision_recall_resource.R")
 
 BOOT_REPETITIONS=1000
 set.seed(1)

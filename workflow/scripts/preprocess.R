@@ -3,7 +3,7 @@ library(VennDiagram)
 futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger") # prevent VennDiagram to write lots of log messages
 library(data.table)
 library(optparse)
-source("scripts/existing_scores_glm_functions.R")
+source("workflow/scripts/existing_scores_glm_functions.R")
 set.seed(1)
 
 option_list = list(
