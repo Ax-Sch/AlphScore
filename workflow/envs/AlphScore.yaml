@@ -27,6 +27,7 @@ dependencies:
   - numpy
   - pandas
   - snakemake=6
+  - tabulate=0.8.10
   - biopandas
   - tabix
   - pip:
