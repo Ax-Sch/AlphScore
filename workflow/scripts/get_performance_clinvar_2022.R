@@ -20,6 +20,10 @@ option_list = list(
               help="pre calculated Alphafold scores"),
   make_option(c("-v", "--variants"), type="character", default="results/prediction_final/pre_final_model_regular_variants.csv.gz", 
               help="variants with calculated AlphScore"),
+  make_option(c("-c", "--CV_training"), type="logical", default=FALSE, 
+              help="Were ClinVar variants used as training set?"),
+  make_option(c("-s", "--protein_subset"), type="character", default="resources/membrane_proteins.txt", 
+              help="Subset of proteins to evaluate separately"),
   make_option(c("-o", "--out_folder"), type="character", default="results/clinvar2022_alphafold/", 
               help="name of folder to store output")
               )
@@ -35,6 +39,8 @@ alphafold_pre_calculated<-read_tsv(opt$AlphaFold_scores, col_names=TRUE,
   mutate(ID=paste(`#chr`, `pos(1-based)`, ref, alt, sep=":"))
 variants<-read_csv(opt$variants, 
                    col_types = cols(.default = "?", REVEL_score = "d", "#chr"= col_character() ))
+
+protein_subset<-scan(file = opt$protein_subset, what=character())
 
 
 dir.create(opt$out_folder, recursive=TRUE)
@@ -62,11 +68,9 @@ variants$DEOGEN2_score_med<-unlist_score(variants$DEOGEN2_score, variants$pos_in
 variants<-variants%>% 
   mutate(ID=paste(`#chr`, `pos(1-based)`,ref, sep=":"))
 
-### combine scores on interim dataset:
-interim_dataset<-variants %>% 
-  filter(clinvar_interim_test==TRUE)
-gnomad_dataset<-variants %>% 
-  filter(gnomad_train==TRUE)
+
+
+
 non_test_dataset<-variants %>% 
   filter(clinvar_holdout_test==FALSE)
 test_dataset<-variants %>% 
@@ -74,8 +78,26 @@ test_dataset<-variants %>%
 
 alphafold_pre_calculated_w_CV2022<-alphafold_pre_calculated_w_CV2022 %>%
   mutate(ID=paste(`#chr`, `pos(1-based)`,ref,  sep=":"))%>%
+  mutate(prot_subset=Uniprot_acc_split %in% protein_subset)
+
+### combine scores on interim dataset:
+if (opt$CV_training){
+  train_ds<-variants %>% 
+    filter(clinvar_train==TRUE)
+  interim_dataset<-variants %>% 
+    filter(gnomad_interim_test==TRUE)
+  
+}else{
+  interim_dataset<-variants %>% 
+    filter(clinvar_interim_test==TRUE)
+  train_ds<-variants %>% 
+    filter(gnomad_train==TRUE)
+}
+
+alphafold_pre_calculated_w_CV2022<-alphafold_pre_calculated_w_CV2022 %>%
   filter(!ID %in% interim_dataset$ID)%>%
-  filter(!ID %in% non_test_dataset$ID)
+  filter(!ID %in% non_test_dataset$ID)%>%
+  filter(!ID %in% train_ds$ID)
 
 set_of_models<-fit_set_of_models(interim_dataset)
 testSet<-predict_set_of_models(set_of_models, alphafold_pre_calculated_w_CV2022)
@@ -87,8 +109,16 @@ nrow(testSet)
 # ensure that no variant is multiple times in the data set; if so, take the mean of the predictors, ensure, that the variant is rated consistently benign / pathogenic
 testSet<-testSet %>% 
   group_by(ID) %>%
-  summarise(AlphScore=mean(AlphScore), REVEL_score=mean(REVEL_score), glm_AlphRevel=mean(glm_AlphRevel), Alph_null=mean(Alph_null),
-            CADD_raw=mean(CADD_raw), glm_AlphCadd=mean(glm_AlphCadd), DEOGEN2_score_med=mean(DEOGEN2_score_med), glm_AlphDeogen=mean(glm_AlphDeogen), outcome=mean(outcome))%>%
+  summarise(AlphScore=mean(AlphScore), 
+            REVEL_score=mean(REVEL_score), 
+            glm_AlphRevel=mean(glm_AlphRevel), 
+            Alph_null=mean(Alph_null),
+            CADD_raw=mean(CADD_raw), 
+            glm_AlphCadd=mean(glm_AlphCadd), 
+            DEOGEN2_score_med=mean(DEOGEN2_score_med), 
+            glm_AlphDeogen=mean(glm_AlphDeogen), 
+            outcome=mean(outcome),
+            prot_subset=max(prot_subset))%>%
   filter(outcome %in% c(0,1))%>%
   mutate(outcome=as.logical(outcome))
 
@@ -302,6 +332,24 @@ write_tsv(x=score_performance_tbl,
           file="score_performance_tbl.tsv")
 
 
+score_performance_tbl_subset<-get_score_performance_table(testSet %>% filter(prot_subset==1), TRUE)
+score_performance_tbl_NONsubset<-get_score_performance_table(testSet %>% filter(prot_subset==0), TRUE)
+
+counts_test_set<-testSet %>% 
+  group_by(outcome, prot_subset)%>%
+  summarise(n=n())
+
+write_tsv(x=counts_test_set,
+          file="counts_test_set.tsv")
+
+write_tsv(x=score_performance_tbl_subset, 
+          file="score_performance_tbl_subset.tsv")
+
+write_tsv(x=score_performance_tbl_NONsubset, 
+          file="score_performance_tbl_NONsubset.tsv")
+
+
+
 compare_scores<-function(booted_values_private){
   booted_values_private_summarised<-booted_values_private %>%
     rowwise%>%
@@ -341,36 +389,37 @@ write_tsv(x = pValTable_AbsCor,
 
 
 # Diagram with ROCs
+plot_aucs_clinvar_bar<-function(perf_table, out_file){
+  score_performance_tbl_spread<-perf_table%>%
+    select(-num_test)%>%
+    gather(key="method")%>%
+    arrange(value)
+  
+  score_performance_tbl_spread<-score_performance_tbl_spread%>%
+    mutate(method=factor(method, levels=c("Alph_null_ROC","Alph_ROC","CADD_ROC","AlphCadd_ROC","DEOGEN2_ROC","AlphDeogen_ROC","REVEL_ROC","AlphRevel_ROC")))%>%
+    filter(!is.na(method))
+  
+  plot_aucs_ClinVar<-ggplot(score_performance_tbl_spread, aes(x=method, y=value))+
+    stat_summary(fun.y = mean, geom = "bar") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
+          axis.text.y = element_text(color="black", size=10))+
+    coord_cartesian(ylim=c(0.5,1)) + 
+    labs(x = "")+
+    labs(y = "AUC (ClinVar test set)", size=12)
+  
+  plot_aucs_ClinVar
+  ggsave(filename= out_file, plot=plot_aucs_ClinVar, height=5, width=4)
+}
 
-score_performance_tbl_spread<-score_performance_tbl%>%
-  select(-num_test)%>%
-  gather(key="method")%>%
-  arrange(value)
-
-score_performance_tbl_spread<-score_performance_tbl_spread%>%
-  mutate(method=factor(method, levels=c("Alph_null_ROC","Alph_ROC","CADD_ROC","AlphCadd_ROC","DEOGEN2_ROC","AlphDeogen_ROC","REVEL_ROC","AlphRevel_ROC")))
-
-plot_aucs_ClinVar<-ggplot(score_performance_tbl_spread, aes(x=method, y=value))+
-  stat_summary(fun.y = mean, geom = "bar") + 
-  theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, color="black", size=10),
-        axis.text.y = element_text(color="black", size=10))+
-  coord_cartesian(ylim=c(0.5,1)) + 
-  labs(x = "")+
-  labs(y = "AUC (ClinVar test set)", size=12)
-
-plot_aucs_ClinVar
-ggsave(filename= "plot_aucs_ClinVar.pdf", plot=plot_aucs_ClinVar, height=5, width=4)
+plot_aucs_clinvar_bar(score_performance_tbl,"plot_aucs_ClinVar.pdf")
+plot_aucs_clinvar_bar(score_performance_tbl_subset,"plot_aucs_ClinVar_subset.pdf")
+plot_aucs_clinvar_bar(score_performance_tbl_NONsubset,"plot_aucs_ClinVar_NOsubset.pdf")
 
 
 
-
-
-
-
-datasets_venn<-venn.diagram(x=list(gnomad_dataset$ID, interim_dataset$ID, testSet$ID), 
+datasets_venn<-venn.diagram(x=list(train_ds$ID, interim_dataset$ID, testSet$ID), 
              category.names = c("gnomAD_train" , "ClinVar_validation", "ClinVar_test/hold-out"), 
              filename = NULL)
 
 ggsave(datasets_venn, file="datasets_venn.pdf", device = "pdf", width=6, height=6)
-

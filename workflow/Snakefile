@@ -757,14 +757,15 @@ rule evaluate_performance_on_clinvar:
 		cv_patho="results/clinvar2022/clinvar_2022_pathogenic.vcf.gz",
 		cv_ben="results/clinvar2022/clinvar_2022_benign.vcf.gz",
 		cv_scores="results/clinvar2022/values_of_clinvar_variants.tsv.gz",
-		variants="results/prediction_final/pre_final_model_regular_variants.csv.gz"	
+		variants="results/prediction_final/pre_final_model_regular_variants.csv.gz",
+		membrane_proteins="resources/membrane_proteins.txt",
 	output:
 		"results/clinvar2022_alphafold/ClinVar_val_REVEL.pdf",
 		"results/clinvar2022_alphafold/score_performance_tbl.tsv"
 	resources: cpus=1, mem_mb=50000, time_job=480
 	params:
 		partition=config["short_partition"],
-		out_folder="results/clinvar2022_alphafold/"
+		out_folder="results/clinvar2022_alphafold/",
 	shell:
 		"""
 		Rscript workflow/scripts/get_performance_clinvar_2022.R \
@@ -772,6 +773,7 @@ rule evaluate_performance_on_clinvar:
 		--clinvar_pathogenic {input.cv_patho} \
 		--AlphaFold_scores {input.cv_scores} \
 		--variants {input.variants} \
+		--protein_subset {input.membrane_proteins} \
 		--out_folder {params.out_folder} 
 		"""
 
