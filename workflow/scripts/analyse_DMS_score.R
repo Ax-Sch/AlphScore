@@ -135,6 +135,33 @@ return(spearman_joined_private)
 
 spearmans_joined<-get_correlations(validation_dataset)
 
+scatter_dms<-ggplot(data=validation_dataset)+
+  geom_point(aes(x=DMS_val, y=AlphScore), color="darkblue", alpha=0.1)+
+  geom_text(data=spearmans_joined %>% filter(method=="AlphScore"), aes(label=round(abs_spear, 3)),x = Inf, y = Inf, hjust = 1, vjust = 1)+
+  labs(x="DMS score")+
+  facet_wrap(~ scoreID, scales = "free", ncol = 3)+
+  theme_minimal()
+
+ggsave(filename = "scatter_dms_alphscore.png",
+       plot = scatter_dms,
+       height = 10,
+       width=8, 
+       dpi=300)
+
+scatter_dms<-ggplot(data=validation_dataset)+
+  geom_point(aes(x=DMS_val, y=glm_AlphDeogenRevel), color="darkblue", alpha=0.1)+
+  geom_text(data=spearmans_joined %>% filter(method=="glm_AlphDeogenRevel"), aes(label=round(abs_spear, 3)),x = Inf, y = Inf, hjust = 1, vjust = 1)+
+  labs(y="AlphScore + DEOGEN2 + REVEL", x="DMS score")+
+  facet_wrap(~ scoreID, scales = "free", ncol = 3)+
+  theme_minimal()
+
+ggsave(filename = "scatter_dms_alph_doegen_revel.png",
+       plot = scatter_dms,
+       height = 10,
+       width=8, 
+       dpi=300)
+
+
 
 pairwise.t.test(x = spearmans_joined$abs_spear, g = spearmans_joined$method, paired = TRUE, 
                 p.adjust.method = "none", alternative = "greater")
