@@ -2,6 +2,8 @@
 
 This code belongs to the project "Predicting the pathogenicity of missense variants using features derived from AlphaFold2". This is the source code of the project; precalculated scores are deposited under the DOI 10.5281/zenodo.6288139 . 
 
+If you would like to retrieve individual scores for your variants you can visit the website: http://holzwerk-schmidt.de/AlphScore/
+
 ### Workflow
 
 In the first part of the workflow features of each amino acid from AlphaFold structures ( https://alphafold.ebi.ac.uk/ ) are extracted. For feature extraction the tools DSSP, FEATURE, protinter and the python modules biopython, biopandas and networkx are used. The extracted features are then added to the data of dbNSFP 4.2a and dbNSFP is subsequently used to form variant sets (gnomAD, ClinVar). Then these variants are used to train tree-based machine learning classifiers. 
