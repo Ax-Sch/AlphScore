@@ -58,8 +58,17 @@ alphafold_pre_calculated_w_CV2022<-alphafold_pre_calculated_w_CV2022 %>%
 # ensure that no variant is multiple times in the data set; if so, take the mean of the predictors, ensure, that the variant is rated consistently benign / pathogenic
 testSet<-alphafold_pre_calculated_w_CV2022 %>% 
   group_by(ID) %>%
-  summarise(AlphScore=mean(AlphScore), REVEL_score=mean(REVEL_score), glm_AlphRevel=mean(glm_AlphRevel),
-            CADD_raw=mean(CADD_raw), glm_AlphCadd=mean(glm_AlphCadd), DEOGEN2_score_med=mean(DEOGEN2_score_med), glm_AlphDeogen=mean(glm_AlphDeogen), outcome=mean(outcome))%>%
+  summarise(AlphScore=mean(AlphScore), 
+            REVEL_score=mean(REVEL_score), 
+            CADD_raw=mean(CADD_raw), 
+            DEOGEN2_score_med=mean(DEOGEN2_score_med), 
+            glm_AlphRevel=mean(glm_AlphRevel),
+            glm_AlphCadd=mean(glm_AlphCadd), 
+            glm_AlphDeogen=mean(glm_AlphDeogen), 
+            glm_AlphDeogenRevel=mean(glm_AlphDeogenRevel),
+            glm_AlphCaddDeogen=mean(glm_AlphCaddDeogen),
+            glm_CaddDeogenRevel=mean(glm_CaddDeogenRevel),
+            outcome=mean(outcome))%>%
   filter(outcome %in% c(0,1))%>%
   mutate(outcome=as.logical(outcome))
 
@@ -71,90 +80,35 @@ sum(testSet$ID %in% variants$ID)
 testSet<-testSet[complete.cases(testSet),]
 table(testSet$outcome)
 
-AlphScorePlot<-ggplot(testSet)+
-  geom_density(aes(x=AlphScore, fill=outcome), alpha=0.5)+
+dens_plot<-function(score, testSet_f=testSet){
+  testSet_f_mod<-testSet_f
+  testSet_f_mod$cur_score<-unlist(testSet_f[,score], use.names=FALSE)
+  
+AlphScorePlot<-ggplot(testSet_f_mod)+
+  geom_density(aes(x=cur_score, fill=outcome), alpha=0.5)+
   theme_bw()+
   labs(fill = "(likely)\npathogenic:")+
   scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="AlphScorePlot_FINAL.pdf", 
+ggsave(filename=paste0(score, "_FINAL.pdf"), 
        plot=AlphScorePlot,
        width=5, height=3)
-AlphScore_table<-generate_table("AlphScore")
+AlphScore_table<-generate_table(score)
 write_tsv(x=AlphScore_table,
-          file="Alphscore_table_FINAL.tsv")
+          file=paste0(score, "_table_FINAL.tsv"))
+}
 
-glm_AlphRevel_plot<-ggplot(testSet)+
-  geom_density(aes(x=glm_AlphRevel, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="glm_AlphRevel_plot_FINAL.pdf", 
-       plot=glm_AlphRevel_plot,
-       width=5, height=3)
-glm_AlphRevel_table<-generate_table("glm_AlphRevel")
-write_tsv(x=glm_AlphRevel_table,
-          file="glm_AlphRevel_table_FINAL.tsv")
+dens_plot("AlphScore")
+dens_plot("CADD_raw")
+dens_plot("REVEL_score")
+dens_plot("DEOGEN2_score_med")
 
-REVEL_score_plot<-ggplot(testSet)+
-  geom_density(aes(x=REVEL_score, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="REVEL_score_plot_FINAL.pdf", 
-       plot=REVEL_score_plot,
-       width=5, height=3)
-REVEL_score_table<-generate_table("REVEL_score")
-write_tsv(x=REVEL_score_table,
-          file="REVEL_score_table_FINAL.tsv")
+dens_plot("glm_AlphRevel")
+dens_plot("glm_AlphCadd")
+dens_plot("glm_AlphDeogen")
 
-CADD_raw_plot<-ggplot(testSet)+
-  geom_density(aes(x=CADD_raw, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="CADD_raw_plot_FINAL.pdf", 
-       plot=CADD_raw_plot,
-       width=6, height=4)
-CADD_score_table<-generate_table("CADD_raw")
-write_tsv(x=CADD_score_table,
-          file="CADD_score_table_FINAL.tsv")
-
-glm_AlphCadd_plot<-ggplot(testSet)+
-  geom_density(aes(x=glm_AlphCadd, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="glm_AlphCadd_plot_FINAL.pdf", 
-       plot=glm_AlphCadd_plot,
-       width=5, height=3)
-glm_AlphCadd_table<-generate_table("glm_AlphCadd")
-write_tsv(x=glm_AlphCadd_table,
-          file="glm_AlphCadd_table_FINAL.tsv")
-
-Deogen_plot<-ggplot(testSet)+
-  geom_density(aes(x=DEOGEN2_score_med, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="Deogen_plot_FINAL.pdf", 
-       plot=Deogen_plot,
-       width=6, height=4)
-Deogen_score_table<-generate_table("DEOGEN2_score_med")
-write_tsv(x=Deogen_score_table,
-          file="Deogen_score_table_FINAL.tsv")
-
-glm_AlphDeogen_plot<-ggplot(testSet)+
-  geom_density(aes(x=glm_AlphDeogen, fill=outcome), alpha=0.5)+
-  theme_bw()+
-  labs(fill = "(likely)\npathogenic:")+
-  scale_fill_manual(values=c("darkblue", "red"))
-ggsave(filename="glm_AlphDeogen_plot_FINAL.pdf", 
-       plot=glm_AlphDeogen_plot,
-       width=5, height=3)
-glm_AlphDeogen_table<-generate_table("glm_AlphDeogen")
-write_tsv(x=glm_AlphDeogen_table,
-          file="glm_AlphDeogen_table_FINAL.tsv")
-
+dens_plot("glm_AlphDeogenRevel")
+dens_plot("glm_AlphCaddDeogen")
+dens_plot("glm_CaddDeogenRevel")
 
 
 pdf(file="ClinVar_val_REVEL.pdf")
