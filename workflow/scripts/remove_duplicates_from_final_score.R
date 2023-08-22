@@ -2,9 +2,9 @@ library(tidyverse)
 library(optparse)
 
 option_list = list(
-  make_option(c("-v", "--dup_vars"), type="character", default="results/merge_final/all_possible_values_dups.csv.gz", 
+  make_option(c("-v", "--dup_vars"), type="character", default="all_possible_values_dups.csv.gz", 
               help="list of duplicated variants, final set"),
-  make_option(c("-o", "--out_file"), type="character", default="results/merge_final/deduplicated_vars_bind.tsv", 
+  make_option(c("-o", "--out_file"), type="character", default="deduplicated_vars_bind.tsv", 
               help="Output file name"))
 
 opt = parse_args(OptionParser(option_list=option_list))
@@ -13,7 +13,8 @@ opt = parse_args(OptionParser(option_list=option_list))
 duplicted_vars<-read_tsv(opt$dup_vars)
 
 collapse_as_text<-c("Uniprot_acc_split", "HGVSp_VEP_split", "b_factor", "SOLVENT_ACCESSIBILITY_core","in_gnomad_train","in_clinvar_ds")
-scoreVals_to_combine<-c("CADD_raw", "REVEL_score", "AlphScore", "glm_AlphCadd", "glm_AlphRevel", "glm_RevelCadd", "glm_AlphRevelCadd","glm_AlphDeogen", "glm_CaddDeogen", "glm_DeogenRevel", "glm_AlphDeogenRevel", "glm_AlphCaddDeogen", "glm_CaddDeogenRevel")
+scoreVals_to_combine<-c("CADD_raw", "REVEL_score", "AlphScore", "glm_AlphCadd", "glm_AlphRevel", "glm_RevelCadd", "glm_AlphRevelCadd",
+                        "glm_AlphDeogen", "glm_CaddDeogen", "glm_DeogenRevel", "glm_AlphDeogenRevel", "glm_AlphCaddDeogen", "glm_CaddDeogenRevel", "glm_AlphCaddRevel")
 any_action_required<-c(collapse_as_text, scoreVals_to_combine)
 
 cols_vars<-colnames(duplicted_vars)

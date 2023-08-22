@@ -693,7 +693,7 @@ rule remove_duplicate_vars_in_FINAL:
 		  cat {output.duplicate_list}
 		cat {input.header} | tr "," "\t" > {output.tab_header}
 		
- 		lines_dupl=$(wc -l {output.duplicate_list})
+ 		lines_dupl=$(wc -l {output.duplicate_list} | cut -f1 -d" " )
 		
 		if [ $lines_dupl -gt 0 ]
 		then
